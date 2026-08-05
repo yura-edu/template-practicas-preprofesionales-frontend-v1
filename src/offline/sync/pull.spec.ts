@@ -117,4 +117,63 @@ describe('pullChanges', () => {
     const [path] = mockedApi.mock.calls[0]
     expect(path).toContain('since=checkpoint-previo')
   })
+
+  it('escribe placements, documents y evaluations, y borra los que llegan con tombstone', async () => {
+    await db.placements.put({
+      id: 20, studentId: 1, tutorId: 2, companyId: 3, startDate: '2026-03-01', endDate: '2026-07-31',
+      requiredHours: 240, status: 'ACTIVE', version: 1, updatedAt: '2026-04-01T00:00:00.000Z',
+    })
+    await db.documents.put({
+      id: 30, placementId: 7, kind: 'AGREEMENT', filename: 'convenio.pdf', status: 'PENDING',
+      version: 1, updatedAt: '2026-04-01T00:00:00.000Z',
+    })
+    await db.evaluations.put({
+      id: 40, placementId: 7, kind: 'TUTOR', period: '2026-1', scores: {}, updatedAt: '2026-04-01T00:00:00.000Z',
+    })
+
+    mockedApi.mockResolvedValue({
+      changes: {
+        placements: [
+          {
+            id: 21, studentId: 1, tutorId: 2, companyId: 3, startDate: '2026-03-01', endDate: '2026-07-31',
+            requiredHours: 240, status: 'ACTIVE', version: 1, updatedAt: '2026-04-02T00:00:00.000Z',
+          },
+          {
+            id: 20, studentId: 1, tutorId: 2, companyId: 3, startDate: '2026-03-01', endDate: '2026-07-31',
+            requiredHours: 240, status: 'ACTIVE', version: 2, updatedAt: '2026-04-02T00:00:00.000Z',
+            deletedAt: '2026-04-02T00:00:00.000Z',
+          },
+        ],
+        hourLogs: [],
+        documents: [
+          {
+            id: 31, placementId: 7, kind: 'INSURANCE', filename: 'seguro.pdf', status: 'PENDING',
+            version: 1, updatedAt: '2026-04-02T00:00:00.000Z',
+          },
+          {
+            id: 30, placementId: 7, kind: 'AGREEMENT', filename: 'convenio.pdf', status: 'PENDING',
+            version: 2, updatedAt: '2026-04-02T00:00:00.000Z', deletedAt: '2026-04-02T00:00:00.000Z',
+          },
+        ],
+        evaluations: [
+          { id: 41, placementId: 7, kind: 'COMPANY', period: '2026-1', scores: {}, updatedAt: '2026-04-02T00:00:00.000Z' },
+          {
+            id: 40, placementId: 7, kind: 'TUTOR', period: '2026-1', scores: {}, updatedAt: '2026-04-02T00:00:00.000Z',
+            deletedAt: '2026-04-02T00:00:00.000Z',
+          },
+        ],
+      },
+      checkpoint: 'cp-3',
+      hasMore: false,
+    })
+
+    await pullChanges()
+
+    await expect(db.placements.get(21)).resolves.toMatchObject({ id: 21, status: 'ACTIVE' })
+    await expect(db.placements.get(20)).resolves.toBeUndefined()
+    await expect(db.documents.get(31)).resolves.toMatchObject({ id: 31, kind: 'INSURANCE' })
+    await expect(db.documents.get(30)).resolves.toBeUndefined()
+    await expect(db.evaluations.get(41)).resolves.toMatchObject({ id: 41, kind: 'COMPANY' })
+    await expect(db.evaluations.get(40)).resolves.toBeUndefined()
+  })
 })
