@@ -1,9 +1,10 @@
 import { api } from '@/api/client'
 import { db, type OutboxEntry } from '@/offline/db'
 import { applyResults, type SyncOperationResult } from './conflict'
+import { setStatus } from './status'
 
 export async function enqueue(
-  op: Omit<OutboxEntry, 'id' | 'createdAt' | 'attempts' | 'lastError'>,
+  op: Omit<OutboxEntry, 'id' | 'clientOpId' | 'createdAt' | 'attempts' | 'lastError'>,
 ): Promise<void> {
   const entry: OutboxEntry = {
     ...op,
@@ -20,6 +21,11 @@ export async function enqueue(
       await db.hourLogs.update(rowId, { syncState: 'queued' })
     }
   })
+
+  // Sin esto, el contador "N pendientes" solo se recalcula tras un push
+  // exitoso (scheduler.ts:34) y jamás refleja lo que se acaba de encolar
+  // mientras no hay conexión.
+  setStatus({ pending: await db.outbox.count() })
 }
 
 export async function pushOutbox(): Promise<{ applied: number; failed: number }> {

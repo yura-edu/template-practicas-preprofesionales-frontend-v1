@@ -30,7 +30,6 @@ describe('enqueue', () => {
     })
 
     await enqueue({
-      clientOpId: 'ignored-por-push',
       entity: 'hourLog',
       op: 'create',
       payload: { id: 9, hours: 4 },
@@ -65,7 +64,6 @@ describe('pushOutbox', () => {
       syncState: 'local',
     })
     await enqueue({
-      clientOpId: 'ignored-por-push',
       entity: 'hourLog',
       op: 'create',
       payload: { id: 10, hours: 4 },

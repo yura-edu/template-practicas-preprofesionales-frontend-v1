@@ -189,30 +189,33 @@ export function HourLogForm({ placementId, onSaved }: HourLogFormProps) {
     }
 
     try {
-      // 1) Escribe local primero: esto es lo único que hace falta para que
-      // el registro sobreviva a un refresh sin red — no depende de fetch.
-      await db.hourLogs.add(row)
+      // Misma transacción para las dos escrituras: si enqueue() falla, la
+      // fila no queda huérfana en 'local' sin que el usuario se entere.
+      await db.transaction('rw', [db.hourLogs, db.outbox], async () => {
+        // 1) Escribe local primero: esto es lo único que hace falta para que
+        // el registro sobreviva a un refresh sin red — no depende de fetch.
+        await db.hourLogs.add(row)
 
-      // 2) Encola la operación para cuando haya conexión. enqueue() marca la
-      // fila como 'queued' apenas se agrega a la cola de salida.
-      await enqueue({
-        clientOpId: crypto.randomUUID(),
-        entity: 'hourLog',
-        op: 'create',
-        payload: {
-          id: row.id,
-          placementId: row.placementId,
-          date: row.date,
-          startTime: row.startTime,
-          endTime: row.endTime,
-          hours: row.hours,
-          activity: row.activity,
-          status: row.status,
-          reviewNote: row.reviewNote,
-          version: row.version,
-          updatedAt: row.updatedAt,
-        },
-        baseVersion: null,
+        // 2) Encola la operación para cuando haya conexión. enqueue() marca
+        // la fila como 'queued' apenas se agrega a la cola de salida.
+        await enqueue({
+          entity: 'hourLog',
+          op: 'create',
+          payload: {
+            id: row.id,
+            placementId: row.placementId,
+            date: row.date,
+            startTime: row.startTime,
+            endTime: row.endTime,
+            hours: row.hours,
+            activity: row.activity,
+            status: row.status,
+            reviewNote: row.reviewNote,
+            version: row.version,
+            updatedAt: row.updatedAt,
+          },
+          baseVersion: null,
+        })
       })
 
       resetForm()
