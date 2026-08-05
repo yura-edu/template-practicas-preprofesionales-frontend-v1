@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/api/client'
+import { db } from '@/offline/db'
 import { AuthProvider, useAuth } from './AuthContext'
 
 vi.mock('@/api/client', async (importOriginal) => {
@@ -87,12 +88,48 @@ describe('AuthProvider', () => {
       await result.current.login('empresa0@miyura.com', 'yura1234')
     })
 
-    act(() => {
-      result.current.logout()
+    await act(async () => {
+      await result.current.logout()
     })
 
     expect(localStorage.getItem('access_token')).toBeNull()
     expect(localStorage.getItem('user')).toBeNull()
     expect(result.current.user).toBeNull()
+  })
+
+  it('logout wipes local Dexie data, including the sync checkpoint, so the next session starts clean', async () => {
+    // Simula datos dejados en el dispositivo por la sesión anterior: filas de
+    // otro estudiante y el checkpoint global de sync (db.ts) que, sin
+    // espacio de nombres por usuario, filtraría lo que la siguiente sesión
+    // puede recibir del pull si sobreviviera al logout.
+    await db.placements.put({
+      id: 1,
+      studentId: 99,
+      tutorId: 1,
+      companyId: 1,
+      startDate: '2026-01-01',
+      endDate: '2026-06-01',
+      requiredHours: 200,
+      status: 'ACTIVE',
+      version: 1,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+    await db.meta.put({ key: 'syncCheckpoint', value: '2026-01-01T00:00:00.000Z' })
+
+    vi.mocked(api).mockResolvedValue({
+      accessToken: 'tok-123',
+      user: { id: 5, email: 'empresa0@miyura.com', fullName: 'Empresa 0', role: 'COMPANY', companyId: 1 },
+    })
+    const { result } = renderHook(() => useAuth(), { wrapper: withProvider })
+    await act(async () => {
+      await result.current.login('empresa0@miyura.com', 'yura1234')
+    })
+
+    await act(async () => {
+      await result.current.logout()
+    })
+
+    expect(await db.placements.count()).toBe(0)
+    expect(await db.meta.count()).toBe(0)
   })
 })

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '@/api/client'
+import { db } from '@/offline/db'
 
 export type Role = 'STUDENT' | 'TUTOR' | 'COMPANY' | 'COORDINATOR'
 
@@ -24,7 +25,7 @@ interface AuthContextValue {
   user: AuthUser | null
   role: Role | null
   login: (email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -53,7 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedUser)
   }
 
-  function logout() {
+  // Una máquina de laboratorio compartida es el caso normal de este dominio:
+  // si no se borra Dexie, el checkpoint de sync y los datos del estudiante
+  // anterior sobreviven a esta sesión y contaminan la del siguiente.
+  async function logout() {
+    await db.delete()
+    await db.open()
     localStorage.removeItem('access_token')
     localStorage.removeItem('user')
     setUser(null)
