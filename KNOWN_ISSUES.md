@@ -43,7 +43,7 @@ entero para saber qué más se puede romper. Debería partirse en un hook de for
 helpers puros que ya casi están separados (`formatDateForConfirmation`,
 `computeDurationLabel`) y un hook de persistencia aparte. No llegamos.
 
-## D-10 · `offline/hooks/` no tiene tests
+## D-10 · Los hooks que tocan Dexie no tienen tests
 
 `src/offline/hooks/`: `useHourLogs.ts`, `usePlacement.ts`, `useSyncStatus.ts`. La
 excepción es `useOnline.ts`, que sí tiene spec.

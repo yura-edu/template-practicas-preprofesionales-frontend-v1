@@ -88,6 +88,13 @@ para esas cuatro entidades vive en `offline/sync/`. Eso es lo que hace la app of
 construcción** y no como fallback: no hay un `catch` que revierta a un caché si el `fetch`
 falla, porque en el camino de lectura nunca hubo un `fetch`.
 
+**Matiz sobre escrituras**: la parte de "escribe en Dexie + el outbox" aplica solo a
+`HourLog` — es la única entidad que el backend acepta en `/sync/push` (rechaza cualquier
+otra). Por eso revisar horas (`ReviewHoursPage.tsx`), subir un documento (`DocumentsPage.tsx`)
+y evaluar (`EvaluatePage.tsx`) escriben directo por HTTP en vez de encolar en el outbox: no es
+una desviación de la arquitectura, es que esas acciones son online por contrato del backend.
+Las *lecturas* de las cuatro entidades, en cambio, siempre pasan por Dexie sin excepción.
+
 Ofertas, postulaciones y acreditación sí van directo por HTTP (`src/api/`). Requieren red,
 y está bien que la requieran: nadie postula a una oferta ni pide un acta de acreditación
 parado en el sitio de prácticas sin señal. Eso solo importa para las horas.

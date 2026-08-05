@@ -122,8 +122,8 @@ export function HourLogsPage() {
             {logs
               .slice()
               .reverse()
-              .map((log, index) => (
-                <LedgerRow key={index} syncState={log.syncState}>
+              .map((log) => (
+                <LedgerRow key={log.id} syncState={log.syncState}>
                   <span className="font-data text-14 tabular-nums text-ink sm:w-28">{formatDate(log.date)}</span>
                   <span className="font-data text-14 tabular-nums text-inkSoft sm:w-28">
                     {log.startTime}–{log.endTime}
