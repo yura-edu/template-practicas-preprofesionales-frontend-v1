@@ -26,7 +26,7 @@ function LedgerColumnHeader() {
   return (
     <div className="flex items-stretch gap-3 px-3 py-2">
       <span aria-hidden="true" className="block w-1 self-stretch" />
-      <div className="flex flex-1 flex-col gap-1 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex-row sm:items-center sm:gap-3">
+      <div className="hidden flex-1 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex sm:items-center sm:gap-3">
         <span className="sm:w-28">Fecha</span>
         <span className="sm:w-28">Horario</span>
         <span className="sm:w-14">Horas</span>
