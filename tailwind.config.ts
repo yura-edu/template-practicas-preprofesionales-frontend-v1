@@ -74,7 +74,8 @@ export default {
   			inkSoft: 'hsl(var(--ink-soft))',
   			stamp: 'hsl(var(--stamp))',
   			pending: 'hsl(var(--pending))',
-  			void: 'hsl(var(--void))'
+  			void: 'hsl(var(--void))',
+  			surface: 'hsl(var(--surface))'
   		}
   	}
   },
