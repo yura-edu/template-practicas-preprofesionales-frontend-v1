@@ -10,6 +10,9 @@ import { OffersPage } from '@/pages/OffersPage'
 import { OfferDetailPage } from '@/pages/OfferDetailPage'
 import { MyApplicationsPage } from '@/pages/MyApplicationsPage'
 import { DocumentsPage } from '@/pages/DocumentsPage'
+import { MyStudentsPage } from '@/pages/MyStudentsPage'
+import { ReviewHoursPage } from '@/pages/ReviewHoursPage'
+import { EvaluatePage } from '@/pages/EvaluatePage'
 import { Placeholder } from '@/pages/Placeholder'
 
 const ALL_ROLES: Role[] = ['STUDENT', 'TUTOR', 'COMPANY', 'COORDINATOR']
@@ -35,9 +38,9 @@ const ROUTES: RouteDef[] = [
   { path: '/mi-practica', roles: ['STUDENT'], name: 'Mi práctica', element: <MyPlacementPage /> },
   { path: '/horas', roles: ['STUDENT'], name: 'Horas', element: <HourLogsPage /> },
   { path: '/documentos', roles: ['STUDENT'], name: 'Documentos', element: <DocumentsPage /> },
-  { path: '/practicantes', roles: ['TUTOR'], name: 'Practicantes' },
-  { path: '/practicantes/:id/horas', roles: ['TUTOR'], name: 'Horas del practicante' },
-  { path: '/practicantes/:id/evaluar', roles: ['TUTOR'], name: 'Evaluar practicante' },
+  { path: '/practicantes', roles: ['TUTOR'], name: 'Practicantes', element: <MyStudentsPage /> },
+  { path: '/practicantes/:id/horas', roles: ['TUTOR'], name: 'Horas del practicante', element: <ReviewHoursPage /> },
+  { path: '/practicantes/:id/evaluar', roles: ['TUTOR'], name: 'Evaluar practicante', element: <EvaluatePage /> },
   { path: '/ofertas-empresa', roles: ['COMPANY'], name: 'Ofertas de la empresa' },
   { path: '/ofertas-empresa/:id/postulaciones', roles: ['COMPANY'], name: 'Postulaciones a la oferta' },
   { path: '/acreditacion', roles: ['COORDINATOR'], name: 'Acreditación' },
