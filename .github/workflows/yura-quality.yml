@@ -1,0 +1,18 @@
+name: Yura Code Quality
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  checks: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  quality:
+    uses: yura-edu/ci-workflows/.github/workflows/new-code-quality.yml@v1
+    with:
+      language: typescript
+      test_command: 'npm test -- --coverage'
+      base_ref: develop
