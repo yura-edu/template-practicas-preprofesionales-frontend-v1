@@ -29,6 +29,25 @@ export interface LocalPlacement {
   updatedAt: string
 }
 
+export interface LocalDocument {
+  id: number
+  placementId: number
+  kind: string
+  filename: string
+  status: string
+  version: number
+  updatedAt: string
+}
+
+export interface LocalEvaluation {
+  id: number
+  placementId: number
+  kind: string
+  period: string
+  scores: unknown
+  updatedAt: string
+}
+
 export interface OutboxEntry {
   id?: number
   clientOpId: string
@@ -44,8 +63,8 @@ export interface OutboxEntry {
 export const db = new Dexie('practicas') as Dexie & {
   placements: EntityTable<LocalPlacement, 'id'>
   hourLogs: EntityTable<LocalHourLog, 'id'>
-  documents: EntityTable<{ id: number; placementId: number; kind: string; filename: string; status: string; version: number; updatedAt: string }, 'id'>
-  evaluations: EntityTable<{ id: number; placementId: number; kind: string; period: string; scores: unknown; updatedAt: string }, 'id'>
+  documents: EntityTable<LocalDocument, 'id'>
+  evaluations: EntityTable<LocalEvaluation, 'id'>
   outbox: EntityTable<OutboxEntry, 'id'>
   meta: EntityTable<{ key: string; value: string }, 'key'>
 }

@@ -1,24 +1,5 @@
 import { api } from '@/api/client'
-import { db, type LocalHourLog, type LocalPlacement } from '@/offline/db'
-
-interface LocalDocument {
-  id: number
-  placementId: number
-  kind: string
-  filename: string
-  status: string
-  version: number
-  updatedAt: string
-}
-
-interface LocalEvaluation {
-  id: number
-  placementId: number
-  kind: string
-  period: string
-  scores: unknown
-  updatedAt: string
-}
+import { db, type LocalDocument, type LocalEvaluation, type LocalHourLog, type LocalPlacement } from '@/offline/db'
 
 type Tombstoned<T> = T & { deletedAt?: string | null }
 
