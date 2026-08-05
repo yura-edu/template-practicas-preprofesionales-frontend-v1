@@ -34,6 +34,10 @@ export async function pushOutbox(): Promise<{ applied: number; failed: number }>
     payload: e.payload,
   }))
 
+  // El outbox es lo único que sabe qué id local le corresponde a cada operación,
+  // así que el mapa se captura en memoria antes de vaciarlo.
+  const localIds = new Map(entries.map((e) => [e.clientOpId, Number(e.payload.id)]))
+
   await db.outbox.bulkDelete(entries.map((e) => e.id as number))
 
   const { results } = await api<{ results: SyncOperationResult[] }>('/sync/push', {
@@ -41,7 +45,7 @@ export async function pushOutbox(): Promise<{ applied: number; failed: number }>
     body: JSON.stringify({ ops }),
   })
 
-  await applyResults(results)
+  await applyResults(results, localIds)
   return {
     applied: results.filter((r) => r.status === 'applied').length,
     failed: results.filter((r) => r.status !== 'applied').length,
