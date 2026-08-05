@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { parseLocalDate } from '@/lib/date'
 import { db, type LocalPlacement } from '@/offline/db'
 
 type ScoreField = 'technical' | 'communication' | 'punctuality'
@@ -27,7 +28,7 @@ const SCORE_OPTIONS = ['1', '2', '3', '4', '5']
 // deriva de la fecha de inicio del placement: la rúbrica no le pide este
 // dato al tutor.
 function periodFromStartDate(startDate: string): string {
-  const parsed = new Date(startDate)
+  const parsed = parseLocalDate(startDate)
   const year = parsed.getFullYear()
   const term = parsed.getMonth() < 6 ? 1 : 2
   return `${year}-${term}`

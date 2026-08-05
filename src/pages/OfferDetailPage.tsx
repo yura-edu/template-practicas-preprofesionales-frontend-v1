@@ -7,12 +7,13 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { parseLocalDate } from '@/lib/date'
 
 // El DTO del backend exige @MinLength(20) en la motivación.
 const MIN_MOTIVATION_LENGTH = 20
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

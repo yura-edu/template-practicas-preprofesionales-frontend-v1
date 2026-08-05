@@ -4,11 +4,12 @@ import { ApiError } from '@/api/client'
 import { type Offer, listOffers } from '@/api/offers'
 import { Ledger } from '@/components/ledger/Ledger'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { parseLocalDate } from '@/lib/date'
 
 const ALL_MODALITIES = 'TODAS'
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

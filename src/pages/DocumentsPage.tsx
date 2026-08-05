@@ -5,6 +5,7 @@ import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { parseLocalDate } from '@/lib/date'
 import { db, type LocalDocument } from '@/offline/db'
 import { usePlacement } from '@/offline/hooks/usePlacement'
 
@@ -22,7 +23,7 @@ const KIND_LABEL: Record<DocumentKind, string> = {
 }
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

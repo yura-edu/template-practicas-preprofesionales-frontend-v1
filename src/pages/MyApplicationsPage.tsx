@@ -4,9 +4,10 @@ import { type Application, listMine } from '@/api/applications'
 import { ApiError } from '@/api/client'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Ledger } from '@/components/ledger/Ledger'
+import { parseLocalDate } from '@/lib/date'
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

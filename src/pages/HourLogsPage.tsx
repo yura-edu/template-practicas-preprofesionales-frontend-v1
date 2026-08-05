@@ -12,11 +12,12 @@ import {
 } from '@/components/ui/dialog'
 import { Ledger } from '@/components/ledger/Ledger'
 import { LedgerRow } from '@/components/ledger/LedgerRow'
+import { parseLocalDate } from '@/lib/date'
 import { useHourLogs } from '@/offline/hooks/useHourLogs'
 import { usePlacement } from '@/offline/hooks/usePlacement'
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

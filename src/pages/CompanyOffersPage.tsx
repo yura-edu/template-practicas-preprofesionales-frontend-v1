@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Ledger } from '@/components/ledger/Ledger'
+import { parseLocalDate } from '@/lib/date'
 
 type OfferActionState = 'publishing' | 'closing' | 'published' | 'closed' | null
 
@@ -52,7 +53,7 @@ const EMPTY_FORM: CreateOfferFormState = {
 }
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }

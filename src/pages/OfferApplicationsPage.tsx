@@ -11,11 +11,12 @@ import { type Offer, getOffer } from '@/api/offers'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Ledger } from '@/components/ledger/Ledger'
+import { parseLocalDate } from '@/lib/date'
 
 type DecisionState = 'interviewing' | 'accepting' | 'rejecting' | null
 
 function formatDate(dateValue: string): string {
-  const parsed = new Date(dateValue)
+  const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
 }
