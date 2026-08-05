@@ -1,8 +1,11 @@
+import type { ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, type Role, useAuth } from '@/auth/AuthContext'
 import { RequireRole } from '@/auth/RequireRole'
 import { AppLayout } from '@/components/AppLayout'
 import { LoginPage } from '@/pages/LoginPage'
+import { HourLogsPage } from '@/pages/HourLogsPage'
+import { MyPlacementPage } from '@/pages/MyPlacementPage'
 import { Placeholder } from '@/pages/Placeholder'
 
 const ALL_ROLES: Role[] = ['STUDENT', 'TUTOR', 'COMPANY', 'COORDINATOR']
@@ -18,14 +21,15 @@ interface RouteDef {
   path: string
   roles: Role[]
   name: string
+  element?: ReactNode
 }
 
 const ROUTES: RouteDef[] = [
   { path: '/ofertas', roles: ['STUDENT'], name: 'Ofertas' },
   { path: '/ofertas/:id', roles: ['STUDENT'], name: 'Detalle de oferta' },
   { path: '/postulaciones', roles: ['STUDENT'], name: 'Postulaciones' },
-  { path: '/mi-practica', roles: ['STUDENT'], name: 'Mi práctica' },
-  { path: '/horas', roles: ['STUDENT'], name: 'Horas' },
+  { path: '/mi-practica', roles: ['STUDENT'], name: 'Mi práctica', element: <MyPlacementPage /> },
+  { path: '/horas', roles: ['STUDENT'], name: 'Horas', element: <HourLogsPage /> },
   { path: '/documentos', roles: ['STUDENT'], name: 'Documentos' },
   { path: '/practicantes', roles: ['TUTOR'], name: 'Practicantes' },
   { path: '/practicantes/:id/horas', roles: ['TUTOR'], name: 'Horas del practicante' },
@@ -52,15 +56,11 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<HomeRedirect />} />
-        {ROUTES.map(({ path, roles, name }) => (
+        {ROUTES.map(({ path, roles, name, element }) => (
           <Route
             key={path}
             path={path}
-            element={
-              <RequireRole roles={roles}>
-                <Placeholder name={name} />
-              </RequireRole>
-            }
+            element={<RequireRole roles={roles}>{element ?? <Placeholder name={name} />}</RequireRole>}
           />
         ))}
       </Route>
