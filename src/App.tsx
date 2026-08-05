@@ -6,6 +6,10 @@ import { AppLayout } from '@/components/AppLayout'
 import { LoginPage } from '@/pages/LoginPage'
 import { HourLogsPage } from '@/pages/HourLogsPage'
 import { MyPlacementPage } from '@/pages/MyPlacementPage'
+import { OffersPage } from '@/pages/OffersPage'
+import { OfferDetailPage } from '@/pages/OfferDetailPage'
+import { MyApplicationsPage } from '@/pages/MyApplicationsPage'
+import { DocumentsPage } from '@/pages/DocumentsPage'
 import { Placeholder } from '@/pages/Placeholder'
 
 const ALL_ROLES: Role[] = ['STUDENT', 'TUTOR', 'COMPANY', 'COORDINATOR']
@@ -25,12 +29,12 @@ interface RouteDef {
 }
 
 const ROUTES: RouteDef[] = [
-  { path: '/ofertas', roles: ['STUDENT'], name: 'Ofertas' },
-  { path: '/ofertas/:id', roles: ['STUDENT'], name: 'Detalle de oferta' },
-  { path: '/postulaciones', roles: ['STUDENT'], name: 'Postulaciones' },
+  { path: '/ofertas', roles: ['STUDENT'], name: 'Ofertas', element: <OffersPage /> },
+  { path: '/ofertas/:id', roles: ['STUDENT'], name: 'Detalle de oferta', element: <OfferDetailPage /> },
+  { path: '/postulaciones', roles: ['STUDENT'], name: 'Postulaciones', element: <MyApplicationsPage /> },
   { path: '/mi-practica', roles: ['STUDENT'], name: 'Mi práctica', element: <MyPlacementPage /> },
   { path: '/horas', roles: ['STUDENT'], name: 'Horas', element: <HourLogsPage /> },
-  { path: '/documentos', roles: ['STUDENT'], name: 'Documentos' },
+  { path: '/documentos', roles: ['STUDENT'], name: 'Documentos', element: <DocumentsPage /> },
   { path: '/practicantes', roles: ['TUTOR'], name: 'Practicantes' },
   { path: '/practicantes/:id/horas', roles: ['TUTOR'], name: 'Horas del practicante' },
   { path: '/practicantes/:id/evaluar', roles: ['TUTOR'], name: 'Evaluar practicante' },
