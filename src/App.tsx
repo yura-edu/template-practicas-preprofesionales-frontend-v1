@@ -13,7 +13,9 @@ import { DocumentsPage } from '@/pages/DocumentsPage'
 import { MyStudentsPage } from '@/pages/MyStudentsPage'
 import { ReviewHoursPage } from '@/pages/ReviewHoursPage'
 import { EvaluatePage } from '@/pages/EvaluatePage'
-import { Placeholder } from '@/pages/Placeholder'
+import { CompanyOffersPage } from '@/pages/CompanyOffersPage'
+import { OfferApplicationsPage } from '@/pages/OfferApplicationsPage'
+import { AccreditationPage } from '@/pages/AccreditationPage'
 
 const ALL_ROLES: Role[] = ['STUDENT', 'TUTOR', 'COMPANY', 'COORDINATOR']
 
@@ -27,23 +29,22 @@ const HOME_BY_ROLE: Record<Role, string> = {
 interface RouteDef {
   path: string
   roles: Role[]
-  name: string
-  element?: ReactNode
+  element: ReactNode
 }
 
 const ROUTES: RouteDef[] = [
-  { path: '/ofertas', roles: ['STUDENT'], name: 'Ofertas', element: <OffersPage /> },
-  { path: '/ofertas/:id', roles: ['STUDENT'], name: 'Detalle de oferta', element: <OfferDetailPage /> },
-  { path: '/postulaciones', roles: ['STUDENT'], name: 'Postulaciones', element: <MyApplicationsPage /> },
-  { path: '/mi-practica', roles: ['STUDENT'], name: 'Mi práctica', element: <MyPlacementPage /> },
-  { path: '/horas', roles: ['STUDENT'], name: 'Horas', element: <HourLogsPage /> },
-  { path: '/documentos', roles: ['STUDENT'], name: 'Documentos', element: <DocumentsPage /> },
-  { path: '/practicantes', roles: ['TUTOR'], name: 'Practicantes', element: <MyStudentsPage /> },
-  { path: '/practicantes/:id/horas', roles: ['TUTOR'], name: 'Horas del practicante', element: <ReviewHoursPage /> },
-  { path: '/practicantes/:id/evaluar', roles: ['TUTOR'], name: 'Evaluar practicante', element: <EvaluatePage /> },
-  { path: '/ofertas-empresa', roles: ['COMPANY'], name: 'Ofertas de la empresa' },
-  { path: '/ofertas-empresa/:id/postulaciones', roles: ['COMPANY'], name: 'Postulaciones a la oferta' },
-  { path: '/acreditacion', roles: ['COORDINATOR'], name: 'Acreditación' },
+  { path: '/ofertas', roles: ['STUDENT'], element: <OffersPage /> },
+  { path: '/ofertas/:id', roles: ['STUDENT'], element: <OfferDetailPage /> },
+  { path: '/postulaciones', roles: ['STUDENT'], element: <MyApplicationsPage /> },
+  { path: '/mi-practica', roles: ['STUDENT'], element: <MyPlacementPage /> },
+  { path: '/horas', roles: ['STUDENT'], element: <HourLogsPage /> },
+  { path: '/documentos', roles: ['STUDENT'], element: <DocumentsPage /> },
+  { path: '/practicantes', roles: ['TUTOR'], element: <MyStudentsPage /> },
+  { path: '/practicantes/:id/horas', roles: ['TUTOR'], element: <ReviewHoursPage /> },
+  { path: '/practicantes/:id/evaluar', roles: ['TUTOR'], element: <EvaluatePage /> },
+  { path: '/ofertas-empresa', roles: ['COMPANY'], element: <CompanyOffersPage /> },
+  { path: '/ofertas-empresa/:id/postulaciones', roles: ['COMPANY'], element: <OfferApplicationsPage /> },
+  { path: '/acreditacion', roles: ['COORDINATOR'], element: <AccreditationPage /> },
 ]
 
 function HomeRedirect() {
@@ -63,12 +64,8 @@ function AppRoutes() {
         }
       >
         <Route path="/" element={<HomeRedirect />} />
-        {ROUTES.map(({ path, roles, name, element }) => (
-          <Route
-            key={path}
-            path={path}
-            element={<RequireRole roles={roles}>{element ?? <Placeholder name={name} />}</RequireRole>}
-          />
+        {ROUTES.map(({ path, roles, element }) => (
+          <Route key={path} path={path} element={<RequireRole roles={roles}>{element}</RequireRole>} />
         ))}
       </Route>
     </Routes>

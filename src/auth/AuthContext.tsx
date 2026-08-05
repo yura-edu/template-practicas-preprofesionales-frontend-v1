@@ -9,6 +9,10 @@ export interface AuthUser {
   email: string
   fullName: string
   role: Role
+  // Solo relevante para Role.COMPANY (ver User.companyId en el backend); el
+  // resto de roles lo trae null. CompanyOffersPage lo usa para armar
+  // CreateOfferDto sin tener que adivinar o listar todas las empresas.
+  companyId: number | null
 }
 
 interface LoginResponse {
