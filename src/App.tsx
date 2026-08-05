@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider, type Role, useAuth } from '@/auth/AuthContext'
 import { RequireRole } from '@/auth/RequireRole'
+import { AppLayout } from '@/components/AppLayout'
 import { LoginPage } from '@/pages/LoginPage'
 import { Placeholder } from '@/pages/Placeholder'
 
@@ -44,24 +45,25 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route
-        path="/"
         element={
           <RequireRole roles={ALL_ROLES}>
-            <HomeRedirect />
+            <AppLayout />
           </RequireRole>
         }
-      />
-      {ROUTES.map(({ path, roles, name }) => (
-        <Route
-          key={path}
-          path={path}
-          element={
-            <RequireRole roles={roles}>
-              <Placeholder name={name} />
-            </RequireRole>
-          }
-        />
-      ))}
+      >
+        <Route path="/" element={<HomeRedirect />} />
+        {ROUTES.map(({ path, roles, name }) => (
+          <Route
+            key={path}
+            path={path}
+            element={
+              <RequireRole roles={roles}>
+                <Placeholder name={name} />
+              </RequireRole>
+            }
+          />
+        ))}
+      </Route>
     </Routes>
   )
 }
