@@ -1,6 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
+import { Chip } from '@/components/Chip'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Panel, TableHeaderRow, rowClass } from '@/components/Panel'
+import { ProgressBar } from '@/components/ProgressBar'
+import { StatCard, StatGrid } from '@/components/StatCard'
+import { Button } from '@/components/ui/button'
 import { Ledger } from '@/components/ledger/Ledger'
 import { db, type LocalPlacement } from '@/offline/db'
 
@@ -10,14 +16,15 @@ interface StudentRow {
   submittedHours: number
 }
 
-function LedgerColumnHeader() {
+function ColumnHeader() {
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex-row sm:items-center sm:gap-3">
-      <span className="sm:w-32">Estudiante</span>
+    <TableHeaderRow>
+      <span className="w-32">Estudiante</span>
       <span className="flex-1">Empresa</span>
-      <span className="sm:w-44">Progreso de horas</span>
-      <span className="sm:w-32 sm:text-right">Horas por revisar</span>
-    </div>
+      <span className="w-44">Horas aprobadas</span>
+      <span className="w-40">Estado</span>
+      <span className="w-24 text-right">Revisión</span>
+    </TableHeaderRow>
   )
 }
 
@@ -47,52 +54,91 @@ export function MyStudentsPage() {
   }, [user?.id])
 
   if (rows === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando tus practicantes…</p>
+    return <LoadingState>Cargando tus practicantes…</LoadingState>
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-20 text-ink">Mis practicantes</h1>
+  const waiting = rows.filter((row) => row.submittedHours > 0).length
+  const pendingHours = rows.reduce((total, row) => total + row.submittedHours, 0)
 
-      <div className="border border-paperRule bg-surface">
+  return (
+    <>
+      <PageHeader
+        title="Mis practicantes"
+        subtitle="Ordenados como los devuelve tu cola: revisá primero lo que está esperando."
+      />
+
+      {rows.length > 0 ? (
+        <StatGrid>
+          <StatCard label="Practicantes" value={String(rows.length)} note="activos" />
+          <StatCard
+            label="Esperando revisión"
+            value={String(waiting)}
+            note={waiting === 1 ? 'practicante' : 'practicantes'}
+            noteTone={waiting > 0 ? 'pending' : 'neutral'}
+          />
+          <StatCard
+            label="Horas sin revisar"
+            value={pendingHours.toFixed(1)}
+            note="tu decisión"
+            noteTone={pendingHours > 0 ? 'pending' : 'neutral'}
+          />
+        </StatGrid>
+      ) : null}
+
+      <Panel
+        toolbar={
+          rows.length > 0 ? (
+            <span className="ml-auto font-data text-12 text-inkSoft">
+              {rows.length === 1 ? '1 practicante' : `${rows.length} practicantes`}
+            </span>
+          ) : undefined
+        }
+      >
         {rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="font-display text-16 text-ink">Todavía no tienes practicantes asignados</p>
-          </div>
+          <EmptyState
+            title="Todavía no tienes practicantes asignados"
+            description="Cuando la coordinación te asigne uno, aparece acá."
+          />
         ) : (
-          <Ledger header={<LedgerColumnHeader />}>
+          <Ledger header={<ColumnHeader />}>
             {rows.map(({ placement, approvedHours, submittedHours }) => {
               const requiredHours = placement.requiredHours
               const approvedPct = requiredHours > 0 ? Math.min(100, (approvedHours / requiredHours) * 100) : 0
               return (
-                <Link
-                  key={placement.id}
-                  to={`/practicantes/${placement.id}/horas`}
-                  className="flex flex-col gap-2 px-3 py-2 hover:bg-paper focus-visible:bg-paper sm:flex-row sm:items-center sm:gap-3"
-                >
-                  <span className="text-14 text-ink sm:w-32">Estudiante #{placement.studentId}</span>
-                  <span className="flex-1 text-14 text-ink">Empresa #{placement.companyId}</span>
-                  <span className="flex items-center gap-2 sm:w-44">
-                    <span className="flex h-1.5 flex-1 overflow-hidden border border-paperRule bg-paper">
-                      <span className="block h-full bg-stamp" style={{ width: `${approvedPct}%` }} />
-                    </span>
-                    <span className="font-data text-12 tabular-nums text-inkSoft">
+                <div key={placement.id} className={rowClass}>
+                  <span className="text-14 font-semibold text-ink sm:w-32">
+                    Estudiante #{placement.studentId}
+                  </span>
+                  <span className="flex-1 text-14 text-inkBody">Empresa #{placement.companyId}</span>
+                  <span className="flex items-center gap-2.5 sm:w-44">
+                    <ProgressBar
+                      size="sm"
+                      value={approvedPct}
+                      label={`Progreso del estudiante ${placement.studentId}`}
+                      className="flex-1"
+                    />
+                    <span className="font-data text-12 text-inkSoft">
                       {approvedHours.toFixed(1)}/{requiredHours}
                     </span>
                   </span>
-                  <span className="font-data text-14 tabular-nums sm:w-32 sm:text-right">
+                  <span className="sm:w-40">
                     {submittedHours > 0 ? (
-                      <span className="text-pending">{submittedHours.toFixed(1)} h</span>
+                      <Chip tone="pending">{submittedHours.toFixed(1)} h sin revisar</Chip>
                     ) : (
-                      <span className="text-inkSoft">—</span>
+                      <Chip tone="stamp">Al día</Chip>
                     )}
                   </span>
-                </Link>
+                  <span className="sm:w-24 sm:text-right">
+                    <Button asChild size="sm" variant="outline">
+                      <Link to={`/practicantes/${placement.id}/horas`}>Revisar</Link>
+                    </Button>
+                  </span>
+                </div>
               )
             })}
           </Ledger>
         )}
-      </div>
-    </div>
+      </Panel>
+    </>
   )
 }

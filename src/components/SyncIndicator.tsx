@@ -33,30 +33,38 @@ export function SyncIndicator() {
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 font-data text-12"
+      className="flex-none rounded-lg bg-surface px-3.5 py-3"
     >
-      <span className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
+        {/* Relleno además de color: sólido en línea, hueco sin conexión. */}
         <span
           aria-hidden="true"
           className={cn(
-            'inline-block h-2.5 w-2.5 rounded-full',
-            online ? 'border border-stamp bg-stamp' : 'border-2 border-void bg-transparent',
+            'inline-block size-2.5 flex-none rounded-full border',
+            online ? 'border-stamp bg-stamp' : 'border-2 border-void bg-transparent',
           )}
         />
-        <span className={online ? 'text-stamp' : 'text-void'}>
+        <span className={cn('text-13 font-semibold', online ? 'text-ink' : 'text-void')}>
           {online ? 'En línea' : 'Sin conexión'}
         </span>
-      </span>
+      </div>
 
-      <span className={cn('font-data', pending > 0 ? 'text-pending' : 'text-inkSoft')}>
-        {pending} pendiente{pending === 1 ? '' : 's'}
-      </span>
+      <p className="mt-1 text-12 leading-relaxed text-inkSoft">
+        <span className={cn('font-data', pending > 0 && 'font-semibold text-pending')}>
+          {pending} pendiente{pending === 1 ? '' : 's'}
+        </span>
+        {' · último sync '}
+        <span className="font-data">{formatTime(lastSyncAt)}</span>
+      </p>
 
-      <span className="text-inkSoft">
-        Último sync <span className="font-data">{formatTime(lastSyncAt)}</span>
-      </span>
-
-      <Button type="button" variant="outline" size="sm" onClick={handleSyncNow} disabled={busy}>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="mt-2.5 w-full"
+        onClick={handleSyncNow}
+        disabled={busy}
+      >
         {busy ? 'Sincronizando…' : 'Sincronizar ahora'}
       </Button>
     </div>

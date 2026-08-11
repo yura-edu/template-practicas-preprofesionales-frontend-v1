@@ -12,10 +12,15 @@ import {
 } from '@/api/companies'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/auth/AuthContext'
+import { OfferCard, OfferGrid } from '@/components/OfferCard'
+import { PageHeader } from '@/components/PageHeader'
+import { AsyncSection, EmptyState } from '@/components/Panel'
+import { StatCard, StatGrid } from '@/components/StatCard'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -25,8 +30,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Ledger } from '@/components/ledger/Ledger'
 import { parseLocalDate } from '@/lib/date'
+import { plural } from '@/lib/utils'
 
 type OfferActionState = 'publishing' | 'closing' | 'published' | 'closed' | null
 
@@ -109,62 +114,68 @@ function FieldError({ message }: { message?: string }) {
   )
 }
 
-function LedgerColumnHeader() {
+function CompanyOffersStats({ offers }: { offers: CompanyOffer[] }) {
+  const published = offers.filter((offer) => offer.status === 'PUBLISHED').length
+  const drafts = offers.filter((offer) => offer.status === 'DRAFT').length
+  const applications = offers.reduce((total, offer) => total + offer.applications.length, 0)
+
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex-row sm:items-center sm:gap-3">
-      <span className="flex-1">Título</span>
-      <span className="sm:w-28">Modalidad</span>
-      <span className="sm:w-16 sm:text-right">Cupos</span>
-      <span className="sm:w-48">Periodo</span>
-      <span className="sm:w-24">Estado</span>
-      <span className="sm:w-36 sm:text-right">Acciones</span>
-    </div>
+    <StatGrid>
+      <StatCard label="Publicadas" value={String(published)} note="visibles" />
+      <StatCard
+        label="En borrador"
+        value={String(drafts)}
+        note="sin publicar"
+        noteTone={drafts > 0 ? 'pending' : 'neutral'}
+      />
+      <StatCard label="Postulaciones" value={String(applications)} note="recibidas" />
+    </StatGrid>
   )
 }
 
-interface OfferRowProps {
+interface CompanyOfferCardProps {
   offer: CompanyOffer
   state: OfferActionState
   onPublish: (offerId: number) => void
   onClose: (offerId: number) => void
 }
 
-function OfferRow({ offer, state, onPublish, onClose }: OfferRowProps) {
+function CompanyOfferCard({ offer, state, onPublish, onClose }: CompanyOfferCardProps) {
   const busy = state === 'publishing' || state === 'closing'
   const occupied = acceptedCount(offer)
+
   return (
-    <div className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
-      <Link
-        to={`/ofertas-empresa/${offer.id}/postulaciones`}
-        className="flex-1 text-14 text-ink hover:underline focus-visible:underline"
-      >
-        {offer.title}
-      </Link>
-      <span className="font-data text-12 uppercase text-inkSoft sm:w-28">{offer.modality}</span>
-      <span className="font-data text-14 tabular-nums text-ink sm:w-16 sm:text-right">
-        {occupied}/{offer.seats}
-      </span>
-      <span className="font-data text-12 tabular-nums text-inkSoft sm:w-48">
-        {formatPeriod(offer.periodStart, offer.periodEnd)}
-      </span>
-      <span className="sm:w-24">
-        <StatusBadge status={offer.status} />
-      </span>
-      <span className="flex flex-wrap items-center justify-end gap-2 sm:w-36">
-        {state === 'published' ? <span className="font-display text-14 text-stamp">Publicada</span> : null}
-        {state === 'closed' ? <span className="font-display text-14 text-void">Cerrada</span> : null}
-        {offer.status === 'DRAFT' ? (
-          <Button type="button" size="sm" onClick={() => onPublish(offer.id)} disabled={busy}>
-            {state === 'publishing' ? 'Publicando…' : 'Publicar'}
+    <OfferCard
+      title={offer.title}
+      subtitle={formatPeriod(offer.periodStart, offer.periodEnd)}
+      status={<StatusBadge status={offer.status} />}
+      tags={[offer.modality, `${occupied}/${offer.seats} cupos`, `${offer.requiredHours} h`]}
+      description={offer.description}
+      meta={plural(offer.applications.length, 'postulación', 'postulaciones')}
+      actions={
+        <>
+          <Button asChild size="sm" variant="outline">
+            <Link to={`/ofertas-empresa/${offer.id}/postulaciones`}>Ver postulaciones</Link>
           </Button>
-        ) : null}
-        {offer.status === 'PUBLISHED' ? (
-          <Button type="button" size="sm" variant="outline" onClick={() => onClose(offer.id)} disabled={busy}>
-            {state === 'closing' ? 'Cerrando…' : 'Cerrar'}
-          </Button>
-        ) : null}
-      </span>
-    </div>
+          {offer.status === 'DRAFT' ? (
+            <Button type="button" size="sm" onClick={() => onPublish(offer.id)} disabled={busy}>
+              {state === 'publishing' ? 'Publicando…' : 'Publicar'}
+            </Button>
+          ) : null}
+          {offer.status === 'PUBLISHED' ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => onClose(offer.id)}
+              disabled={busy}
+            >
+              {state === 'closing' ? 'Cerrando…' : 'Cerrar'}
+            </Button>
+          ) : null}
+        </>
+      }
+    />
   )
 }
 
@@ -193,106 +204,115 @@ function CreateOfferDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Crear oferta</DialogTitle>
-          <DialogDescription>Se crea en borrador — publícala cuando esté lista</DialogDescription>
+          <DialogTitle>Publicar una oferta</DialogTitle>
+          <DialogDescription>
+            Se crea en borrador — publícala cuando esté lista
+          </DialogDescription>
         </DialogHeader>
-        <form className="flex flex-col gap-3" onSubmit={onSubmit} noValidate>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="offer-title">Título</Label>
-            <Input
-              id="offer-title"
-              value={form.title}
-              onChange={(event) => onFieldChange('title', event.target.value)}
-              aria-invalid={Boolean(formErrors.title)}
-            />
-            <FieldError message={formErrors.title} />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="offer-description">Descripción</Label>
-            <Textarea
-              id="offer-description"
-              value={form.description}
-              onChange={(event) => onFieldChange('description', event.target.value)}
-              rows={3}
-              aria-invalid={Boolean(formErrors.description)}
-            />
-            <FieldError message={formErrors.description} />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="offer-modality">Modalidad</Label>
-            <Input
-              id="offer-modality"
-              value={form.modality}
-              onChange={(event) => onFieldChange('modality', event.target.value)}
-              placeholder="PRESENCIAL, HIBRIDA o REMOTA"
-              aria-invalid={Boolean(formErrors.modality)}
-            />
-            <FieldError message={formErrors.modality} />
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <form onSubmit={onSubmit} noValidate>
+          <DialogBody>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="offer-seats">Cupos</Label>
+              <Label htmlFor="offer-title">Título de la oferta</Label>
               <Input
-                id="offer-seats"
-                type="number"
-                min={1}
-                value={form.seats}
-                onChange={(event) => onFieldChange('seats', event.target.value)}
-                className="font-data tabular-nums"
-                aria-invalid={Boolean(formErrors.seats)}
+                id="offer-title"
+                value={form.title}
+                onChange={(event) => onFieldChange('title', event.target.value)}
+                placeholder="Ej. Asistente de mantenimiento mecánico"
+                aria-invalid={Boolean(formErrors.title)}
               />
-              <FieldError message={formErrors.seats} />
+              <FieldError message={formErrors.title} />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="offer-hours">Horas requeridas</Label>
-              <Input
-                id="offer-hours"
-                type="number"
-                min={1}
-                value={form.requiredHours}
-                onChange={(event) => onFieldChange('requiredHours', event.target.value)}
-                className="font-data tabular-nums"
-                aria-invalid={Boolean(formErrors.requiredHours)}
-              />
-              <FieldError message={formErrors.requiredHours} />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="offer-period-start">Inicio</Label>
-              <Input
-                id="offer-period-start"
-                type="date"
-                value={form.periodStart}
-                onChange={(event) => onFieldChange('periodStart', event.target.value)}
-                className="font-data"
-                aria-invalid={Boolean(formErrors.periodStart)}
+              <Label htmlFor="offer-description">¿Qué va a hacer el practicante?</Label>
+              <p className="text-12 text-inkSoft">
+                Indicá las actividades y quién lo supervisa; es lo que más devuelve la coordinación.
+              </p>
+              <Textarea
+                id="offer-description"
+                value={form.description}
+                onChange={(event) => onFieldChange('description', event.target.value)}
+                rows={3}
+                placeholder="Describí las actividades, el horario y quién supervisa"
+                aria-invalid={Boolean(formErrors.description)}
               />
-              <FieldError message={formErrors.periodStart} />
+              <FieldError message={formErrors.description} />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="offer-period-end">Fin</Label>
-              <Input
-                id="offer-period-end"
-                type="date"
-                value={form.periodEnd}
-                onChange={(event) => onFieldChange('periodEnd', event.target.value)}
-                className="font-data"
-                aria-invalid={Boolean(formErrors.periodEnd)}
-              />
-              <FieldError message={formErrors.periodEnd} />
-            </div>
-          </div>
 
-          {createError ? (
-            <p role="alert" className="text-14 text-void">
-              {createError}
-            </p>
-          ) : null}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="offer-modality">Modalidad</Label>
+              <Input
+                id="offer-modality"
+                value={form.modality}
+                onChange={(event) => onFieldChange('modality', event.target.value)}
+                placeholder="PRESENCIAL, HIBRIDA o REMOTA"
+                aria-invalid={Boolean(formErrors.modality)}
+              />
+              <FieldError message={formErrors.modality} />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="offer-seats">Cupos</Label>
+                <Input
+                  id="offer-seats"
+                  type="number"
+                  min={1}
+                  value={form.seats}
+                  onChange={(event) => onFieldChange('seats', event.target.value)}
+                  className="font-data"
+                  aria-invalid={Boolean(formErrors.seats)}
+                />
+                <FieldError message={formErrors.seats} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="offer-hours">Horas requeridas</Label>
+                <Input
+                  id="offer-hours"
+                  type="number"
+                  min={1}
+                  value={form.requiredHours}
+                  onChange={(event) => onFieldChange('requiredHours', event.target.value)}
+                  className="font-data"
+                  aria-invalid={Boolean(formErrors.requiredHours)}
+                />
+                <FieldError message={formErrors.requiredHours} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="offer-period-start">Inicio</Label>
+                <Input
+                  id="offer-period-start"
+                  type="date"
+                  value={form.periodStart}
+                  onChange={(event) => onFieldChange('periodStart', event.target.value)}
+                  className="font-data"
+                  aria-invalid={Boolean(formErrors.periodStart)}
+                />
+                <FieldError message={formErrors.periodStart} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="offer-period-end">Fin</Label>
+                <Input
+                  id="offer-period-end"
+                  type="date"
+                  value={form.periodEnd}
+                  onChange={(event) => onFieldChange('periodEnd', event.target.value)}
+                  className="font-data"
+                  aria-invalid={Boolean(formErrors.periodEnd)}
+                />
+                <FieldError message={formErrors.periodEnd} />
+              </div>
+            </div>
+
+            {createError ? (
+              <p role="alert" className="rounded-md bg-chipVoid px-3 py-2.5 text-13 text-void">
+                {createError}
+              </p>
+            ) : null}
+          </DialogBody>
 
           <DialogFooter>
             <Button type="submit" disabled={creating}>
@@ -423,39 +443,48 @@ export function CompanyOffersPage() {
     }
   }
 
+  const intro = 'Publicá una vacante y recibí postulaciones de estudiantes.'
+
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="font-display text-20 text-ink">Ofertas</h1>
-          {myCompany ? <p className="font-data text-14 text-inkSoft">{myCompany.name}</p> : null}
-        </div>
-        <Button type="button" onClick={openDialog}>
-          Crear oferta
-        </Button>
-      </header>
+    <>
+      <PageHeader
+        title="Mis ofertas"
+        subtitle={myCompany ? `${myCompany.name} · ${intro}` : intro}
+        actions={
+          <Button type="button" onClick={openDialog}>
+            Publicar oferta
+          </Button>
+        }
+      />
+
+      {offers ? <CompanyOffersStats offers={offers} /> : null}
 
       {actionError ? (
-        <p role="alert" className="font-display text-14 text-void">
+        <p role="alert" className="rounded-lg bg-chipVoid px-4 py-3 text-13 text-void">
           {actionError}
         </p>
       ) : null}
 
-      <div className="border border-paperRule bg-surface">
-        {error ? (
-          <p role="alert" className="px-4 py-10 text-center font-display text-14 text-void">
-            {error}
-          </p>
-        ) : offers === undefined ? (
-          <p className="px-4 py-10 text-center font-display text-14 text-inkSoft">Cargando ofertas…</p>
-        ) : offers.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="font-display text-16 text-ink">Todavía no has publicado ofertas.</p>
-          </div>
-        ) : (
-          <Ledger header={<LedgerColumnHeader />}>
-            {offers.map((offer) => (
-              <OfferRow
+      <AsyncSection
+        error={error}
+        data={offers}
+        loadingLabel="Cargando ofertas…"
+        empty={
+          <EmptyState
+            title="Todavía no has publicado ofertas"
+            description="Publicá una vacante para que los estudiantes puedan postular."
+            action={
+              <Button type="button" size="sm" onClick={openDialog}>
+                Publicar oferta
+              </Button>
+            }
+          />
+        }
+      >
+        {(items) => (
+          <OfferGrid>
+            {items.map((offer) => (
+              <CompanyOfferCard
                 key={offer.id}
                 offer={offer}
                 state={actionState[offer.id] ?? null}
@@ -463,9 +492,9 @@ export function CompanyOffersPage() {
                 onClose={handleClose}
               />
             ))}
-          </Ledger>
+          </OfferGrid>
         )}
-      </div>
+      </AsyncSection>
 
       <CreateOfferDialog
         open={dialogOpen}
@@ -477,6 +506,6 @@ export function CompanyOffersPage() {
         onFieldChange={handleFieldChange}
         onSubmit={handleCreate}
       />
-    </div>
+    </>
   )
 }

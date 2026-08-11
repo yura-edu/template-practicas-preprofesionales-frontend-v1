@@ -8,6 +8,8 @@ import {
 } from '@/api/companies'
 import { ApiError } from '@/api/client'
 import { type Offer, getOffer } from '@/api/offers'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Panel, TableHeaderRow, rowClass } from '@/components/Panel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Ledger } from '@/components/ledger/Ledger'
@@ -25,15 +27,26 @@ function acceptedCount(applications: OfferApplication[]): number {
   return applications.filter((application) => application.status === 'ACCEPTED').length
 }
 
-function LedgerColumnHeader() {
+function ColumnHeader() {
   return (
-    <div className="flex flex-col gap-1 px-3 py-2 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex-row sm:items-center sm:gap-3">
-      <span className="sm:w-40">Estudiante</span>
+    <TableHeaderRow>
+      <span className="w-40">Estudiante</span>
       <span className="flex-1">Motivación</span>
-      <span className="sm:w-28">Enviada</span>
-      <span className="sm:w-24">Estado</span>
-      <span className="sm:w-60 sm:text-right">Acciones</span>
-    </div>
+      <span className="w-28">Enviada</span>
+      <span className="w-32">Estado</span>
+      <span className="w-60 text-right">Acciones</span>
+    </TableHeaderRow>
+  )
+}
+
+function BackLink() {
+  return (
+    <Link
+      to="/ofertas-empresa"
+      className="self-start text-13 font-semibold text-stamp hover:underline"
+    >
+      ← Volver a mis ofertas
+    </Link>
   )
 }
 
@@ -102,19 +115,19 @@ export function OfferApplicationsPage() {
 
   if (loadError) {
     return (
-      <div className="flex flex-col gap-4">
-        <Link to="/ofertas-empresa" className="font-display text-14 text-stamp hover:underline">
-          Volver a ofertas
-        </Link>
-        <p role="alert" className="font-display text-16 text-void">
-          {loadError}
-        </p>
-      </div>
+      <>
+        <BackLink />
+        <Panel>
+          <p role="alert" className="px-5 py-14 text-center text-14 text-void">
+            {loadError}
+          </p>
+        </Panel>
+      </>
     )
   }
 
   if (offer === undefined || applications === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando postulaciones…</p>
+    return <LoadingState>Cargando postulaciones…</LoadingState>
   }
 
   if (offer === null) {
@@ -125,48 +138,64 @@ export function OfferApplicationsPage() {
   const remaining = offer.seats - occupied
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link to="/ofertas-empresa" className="font-display text-14 text-stamp hover:underline">
-        Volver a ofertas
-      </Link>
+    <>
+      <BackLink />
 
-      <header className="flex flex-col gap-1 border border-paperRule bg-surface p-4">
-        <h1 className="font-display text-20 text-ink">{offer.title}</h1>
-        <p className="font-data text-14 tabular-nums text-inkSoft">
-          {remaining > 0
+      <PageHeader
+        title={offer.title}
+        subtitle={
+          remaining > 0
             ? `${remaining} de ${offer.seats} cupos restantes`
-            : `${offer.seats} de ${offer.seats} cupos ocupados`}
-        </p>
-      </header>
+            : `${offer.seats} de ${offer.seats} cupos ocupados`
+        }
+      />
 
       {decisionError ? (
-        <p role="alert" className="font-display text-14 text-void">
+        <p role="alert" className="rounded-lg bg-chipVoid px-4 py-3 text-13 text-void">
           {decisionError}
         </p>
       ) : null}
 
-      <div className="border border-paperRule bg-surface">
+      <Panel
+        toolbar={
+          applications.length > 0 ? (
+            <span className="ml-auto font-data text-12 text-inkSoft">
+              {applications.length === 1
+                ? '1 postulación'
+                : `${applications.length} postulaciones`}
+            </span>
+          ) : undefined
+        }
+      >
         {applications.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="font-display text-16 text-ink">Todavía no hay postulaciones para esta oferta</p>
-          </div>
+          <EmptyState
+            title="Todavía nadie postuló"
+            description="Cuando la oferta esté publicada, los estudiantes pueden aplicar."
+          />
         ) : (
-          <Ledger header={<LedgerColumnHeader />}>
+          <Ledger header={<ColumnHeader />}>
             {applications.map((application) => {
               const state = decisionState[application.id] ?? null
               const busy = state !== null
-              const decidable = application.status === 'SUBMITTED' || application.status === 'INTERVIEW'
+              const decidable =
+                application.status === 'SUBMITTED' || application.status === 'INTERVIEW'
               return (
-                <div key={application.id} className="flex flex-col gap-2 px-3 py-2 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="text-14 text-ink sm:w-40">{application.student.fullName}</span>
-                  <span className="flex-1 text-14 text-ink">{application.motivation}</span>
-                  <span className="font-data text-12 tabular-nums text-inkSoft sm:w-28">
+                <div key={application.id} className={rowClass}>
+                  <span className="text-14 font-semibold text-ink sm:w-40">
+                    {application.student.fullName}
+                  </span>
+                  <span className="flex-1">
+                    <span className="block max-w-[520px] rounded-md bg-soft px-3 py-2.5 text-13 leading-relaxed text-inkDeep">
+                      {application.motivation}
+                    </span>
+                  </span>
+                  <span className="font-data text-13 text-inkSoft sm:w-28">
                     {formatDate(application.submittedAt)}
                   </span>
-                  <span className="sm:w-24">
+                  <span className="sm:w-32">
                     <StatusBadge status={application.status} />
                   </span>
-                  <span className="flex flex-wrap items-center justify-end gap-2 sm:w-60">
+                  <span className="flex flex-wrap items-center justify-end gap-1.5 sm:w-60">
                     {decidable ? (
                       <>
                         {application.status === 'SUBMITTED' ? (
@@ -195,7 +224,7 @@ export function OfferApplicationsPage() {
                           onClick={() => decide(application.id, 'REJECTED', 'rejecting')}
                           disabled={busy}
                         >
-                          {state === 'rejecting' ? 'Rechazando…' : 'Rechazar'}
+                          {state === 'rejecting' ? 'Descartando…' : 'Descartar'}
                         </Button>
                       </>
                     ) : null}
@@ -205,7 +234,7 @@ export function OfferApplicationsPage() {
             })}
           </Ledger>
         )}
-      </div>
-    </div>
+      </Panel>
+    </>
   )
 }

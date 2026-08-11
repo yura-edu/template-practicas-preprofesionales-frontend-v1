@@ -3,11 +3,15 @@ import { Link, useParams } from 'react-router-dom'
 import { type Application, apply, listMine } from '@/api/applications'
 import { ApiError } from '@/api/client'
 import { type Offer, getOffer } from '@/api/offers'
+import { Tag } from '@/components/Chip'
+import { PageHeader } from '@/components/PageHeader'
+import { LoadingState, Panel, Section } from '@/components/Panel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { parseLocalDate } from '@/lib/date'
+import { plural } from '@/lib/utils'
 
 // El DTO del backend exige @MinLength(20) en la motivación.
 const MIN_MOTIVATION_LENGTH = 20
@@ -20,6 +24,66 @@ function formatDate(dateValue: string): string {
 
 function formatPeriod(periodStart: string, periodEnd: string): string {
   return `${formatDate(periodStart)} – ${formatDate(periodEnd)}`
+}
+
+function BackLink() {
+  return (
+    <Link to="/ofertas" className="self-start text-13 font-semibold text-stamp hover:underline">
+      ← Volver a ofertas
+    </Link>
+  )
+}
+
+/** Cuántos caracteres faltan para llegar al mínimo que exige el backend. */
+function motivationHint(motivation: string): string {
+  const remaining = MIN_MOTIVATION_LENGTH - motivation.trim().length
+  if (remaining <= 0) return 'Longitud suficiente'
+  return `Faltan ${remaining} caracteres (mínimo ${MIN_MOTIVATION_LENGTH})`
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 text-13">
+      <span className="text-inkSoft">{label}</span>
+      <span className="text-right font-semibold text-ink">{value}</span>
+    </div>
+  )
+}
+
+interface ApplicationSectionProps {
+  /** `undefined` mientras se comprueba, `null` si todavía no postuló. */
+  application: Application | null | undefined
+  /** Formulario de postulación, para cuando aún no hay una enviada. */
+  form: React.ReactNode
+}
+
+function ApplicationSection({ application, form }: ApplicationSectionProps) {
+  if (application === undefined) {
+    return (
+      <Section title="Tu postulación">
+        <p className="px-[18px] py-4 text-14 text-inkSoft">Comprobando si ya postulaste…</p>
+      </Section>
+    )
+  }
+
+  if (application) {
+    return (
+      <Section title="Tu postulación">
+        <div className="flex flex-wrap items-center gap-3 px-[18px] py-4">
+          <StatusBadge status={application.status} />
+          <span className="font-data text-12 text-inkSoft">
+            Enviada el {formatDate(application.submittedAt)}
+          </span>
+        </div>
+      </Section>
+    )
+  }
+
+  return (
+    <Section title="Postular a esta oferta">
+      <div className="px-[18px] py-4">{form}</div>
+    </Section>
+  )
 }
 
 export function OfferDetailPage() {
@@ -89,81 +153,64 @@ export function OfferDetailPage() {
 
   if (loadError) {
     return (
-      <div className="flex flex-col gap-4">
-        <Link to="/ofertas" className="font-display text-14 text-stamp hover:underline">
-          Volver a ofertas
-        </Link>
-        <p role="alert" className="font-display text-16 text-void">
-          {loadError}
-        </p>
-      </div>
+      <>
+        <BackLink />
+        <Panel>
+          <p role="alert" className="px-5 py-14 text-center text-14 text-void">
+            {loadError}
+          </p>
+        </Panel>
+      </>
     )
   }
 
   if (offer === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando oferta…</p>
+    return <LoadingState>Cargando oferta…</LoadingState>
   }
 
   if (offer === null) {
     return null
   }
 
-  const remaining = MIN_MOTIVATION_LENGTH - motivation.trim().length
+  const remainingHint = motivationHint(motivation)
 
   return (
-    <div className="flex flex-col gap-6">
-      <Link to="/ofertas" className="font-display text-14 text-stamp hover:underline">
-        Volver a ofertas
-      </Link>
+    <>
+      <BackLink />
 
-      <header className="flex flex-col gap-1 border border-paperRule bg-surface p-4">
-        <h1 className="font-display text-20 text-ink">{offer.title}</h1>
-        <p className="font-data text-14 text-inkSoft">
-          {offer.company.name} · {offer.modality}
-        </p>
-      </header>
+      <PageHeader title={offer.title} subtitle={offer.company.name} />
 
-      <section className="border border-paperRule bg-surface">
-        <h2 className="border-b border-paperRule px-3 py-2 font-display text-14 uppercase tracking-wide text-inkSoft">
-          Descripción
-        </h2>
-        <p className="whitespace-pre-line px-3 py-3 text-14 text-ink">{offer.description}</p>
-        <dl className="divide-y divide-paperRule border-t border-paperRule">
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Cupos</dt>
-            <dd className="font-data text-14 tabular-nums text-ink">{offer.seats}</dd>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Horas requeridas</dt>
-            <dd className="font-data text-14 tabular-nums text-ink">{offer.requiredHours}</dd>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Periodo</dt>
-            <dd className="font-data text-14 tabular-nums text-ink">
-              {formatPeriod(offer.periodStart, offer.periodEnd)}
-            </dd>
-          </div>
-        </dl>
-      </section>
+      <div className="flex flex-wrap gap-1.5">
+        <Tag>{offer.modality}</Tag>
+        <Tag>{plural(offer.seats, 'cupo', 'cupos')}</Tag>
+        <Tag>{offer.requiredHours} h</Tag>
+      </div>
 
-      <section className="border border-paperRule bg-surface p-4">
-        {existingApplication === undefined ? (
-          <p className="font-display text-14 text-inkSoft">Comprobando si ya postulaste…</p>
-        ) : existingApplication ? (
-          <div className="flex flex-col gap-2">
-            <h2 className="font-display text-14 uppercase tracking-wide text-inkSoft">Tu postulación</h2>
-            <div className="flex items-center gap-3">
-              <StatusBadge status={existingApplication.status} />
-              <span className="font-data text-12 tabular-nums text-inkSoft">
-                Enviada el {formatDate(existingApplication.submittedAt)}
-              </span>
-            </div>
+      <Section title="Descripción">
+        <div className="px-[18px] py-4">
+          <p className="whitespace-pre-line text-14 leading-relaxed text-inkDeep">
+            {offer.description}
+          </p>
+          <div className="mt-4 flex flex-col gap-2 rounded-lg bg-well px-4 py-3.5">
+            <SummaryRow label="Cupos" value={String(offer.seats)} />
+            <SummaryRow label="Horas requeridas" value={`${offer.requiredHours} h`} />
+            <SummaryRow
+              label="Periodo"
+              value={formatPeriod(offer.periodStart, offer.periodEnd)}
+            />
           </div>
-        ) : (
-          <form className="flex flex-col gap-3" onSubmit={handleSubmit} noValidate>
-            <h2 className="font-display text-14 uppercase tracking-wide text-inkSoft">Postular</h2>
+        </div>
+      </Section>
+
+      <ApplicationSection
+        application={existingApplication}
+        form={
+          <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="motivation">Motivación</Label>
+              <Label htmlFor="motivation">Contale por qué te interesa</Label>
+              <p className="text-12 text-inkSoft">
+                Las empresas responden antes a quien escribe dos líneas.
+              </p>
               <Textarea
                 id="motivation"
                 value={motivation}
@@ -172,12 +219,12 @@ export function OfferDetailPage() {
                   if (motivationError) setMotivationError(null)
                 }}
                 rows={4}
-                placeholder="Cuéntale a la empresa por qué te interesa esta práctica"
+                placeholder="Ej. Estoy en octavo ciclo y trabajé en mantenimiento de bombas en el laboratorio."
                 aria-invalid={Boolean(motivationError)}
                 aria-describedby="motivation-hint"
               />
-              <p id="motivation-hint" className="font-data text-12 text-inkSoft">
-                {remaining > 0 ? `Faltan ${remaining} caracteres (mínimo ${MIN_MOTIVATION_LENGTH})` : 'Longitud suficiente'}
+              <p id="motivation-hint" className="self-end font-data text-12 text-inkSoft">
+                {remainingHint}
               </p>
               {motivationError ? (
                 <p role="alert" className="text-12 text-void">
@@ -187,17 +234,17 @@ export function OfferDetailPage() {
             </div>
 
             {submitError ? (
-              <p role="alert" className="text-14 text-void">
+              <p role="alert" className="rounded-md bg-chipVoid px-3 py-2.5 text-13 text-void">
                 {submitError}
               </p>
             ) : null}
 
             <Button type="submit" disabled={submitting} className="self-start">
-              {submitting ? 'Enviando…' : 'Postular'}
+              {submitting ? 'Enviando…' : 'Enviar postulación'}
             </Button>
           </form>
-        )}
-      </section>
-    </div>
+        }
+      />
+    </>
   )
 }

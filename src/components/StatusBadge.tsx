@@ -1,15 +1,6 @@
-import { cn } from '@/lib/utils'
+import { Chip, type ChipTone } from '@/components/Chip'
 
-type Tone = 'stamp' | 'pending' | 'void' | 'inkSoft'
-
-const TONE_CLASSES: Record<Tone, string> = {
-  stamp: 'border-stamp/40 bg-stamp/10 text-stamp',
-  pending: 'border-pending/40 bg-pending/10 text-pending',
-  void: 'border-void/40 bg-void/10 text-void',
-  inkSoft: 'border-inkSoft/40 bg-inkSoft/10 text-inkSoft',
-}
-
-const STATUS_TONE: Record<string, Tone> = {
+const STATUS_TONE: Record<string, ChipTone> = {
   APPROVED: 'stamp',
   ACCEPTED: 'stamp',
   ACTIVE: 'stamp',
@@ -32,15 +23,5 @@ const STATUS_TONE: Record<string, Tone> = {
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone = STATUS_TONE[status] ?? 'inkSoft'
-  return (
-    <span
-      className={cn(
-        'inline-block border px-1.5 py-0.5 font-data text-12 uppercase',
-        TONE_CLASSES[tone],
-      )}
-    >
-      {status}
-    </span>
-  )
+  return <Chip tone={STATUS_TONE[status] ?? 'neutral'}>{status}</Chip>
 }

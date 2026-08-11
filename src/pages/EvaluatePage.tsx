@@ -3,6 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError } from '@/api/client'
 import { submitEvaluation } from '@/api/evaluations'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Panel, Section } from '@/components/Panel'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -56,11 +58,11 @@ export function EvaluatePage() {
   const [submitted, setSubmitted] = useState(false)
 
   if (placement === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando practicante…</p>
+    return <LoadingState>Cargando practicante…</LoadingState>
   }
 
   if (placement === null) {
-    return <p className="font-display text-16 text-inkSoft">No se encontró este practicante.</p>
+    return <EmptyState title="No se encontró este practicante" />
   }
 
   const period = periodFromStartDate(placement.startDate)
@@ -98,77 +100,90 @@ export function EvaluatePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-20 text-ink">Evaluar practicante</h1>
-        <p className="font-data text-14 text-inkSoft">
-          Estudiante #{placement.studentId} · Empresa #{placement.companyId}
-        </p>
-        <Link
-          to={`/practicantes/${placementId}/horas`}
-          className="self-start font-display text-14 text-stamp hover:underline"
-        >
-          Ver libro de horas
-        </Link>
-      </header>
+    <>
+      <PageHeader
+        title="Evaluar practicante"
+        subtitle={`Estudiante #${placement.studentId} · Empresa #${placement.companyId} · periodo ${period}`}
+        actions={
+          <Button asChild variant="outline">
+            <Link to={`/practicantes/${placementId}/horas`}>Ver libro de horas</Link>
+          </Button>
+        }
+      />
 
       {submitted ? (
-        <div className="flex flex-col items-center gap-2 border border-paperRule bg-surface px-4 py-10 text-center">
-          <p className="font-display text-16 text-ink">Evaluación enviada</p>
-          <Link to="/practicantes" className="font-display text-14 text-stamp hover:underline">
-            Volver a mis practicantes
-          </Link>
-        </div>
+        <Panel>
+          <EmptyState
+            title="Evaluación enviada"
+            description="La coordinación ya la puede ver en el acta del periodo."
+            action={
+              <Button asChild size="sm">
+                <Link to="/practicantes">Volver a mis practicantes</Link>
+              </Button>
+            }
+          />
+        </Panel>
       ) : (
-        <form className="flex flex-col gap-4 border border-paperRule bg-surface p-4" onSubmit={handleSubmit} noValidate>
-          {CRITERIA.map(({ field, label }) => (
-            <div key={field} className="flex flex-col gap-1.5">
-              <Label htmlFor={`eval-${field}`}>{label}</Label>
-              <Select
-                value={scores[field]}
-                onValueChange={(value) => setScores((prev) => ({ ...prev, [field]: value }))}
-              >
-                <SelectTrigger id={`eval-${field}`} className="w-32 font-data" aria-invalid={Boolean(errors[field])}>
-                  <SelectValue placeholder="1 a 5" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SCORE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option} className="font-data">
-                      {option}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors[field] ? (
-                <p role="alert" className="text-12 text-void">
-                  {errors[field]}
-                </p>
-              ) : null}
+        <Section title="Rúbrica">
+          <form className="flex flex-col gap-4 px-[18px] py-4" onSubmit={handleSubmit} noValidate>
+            <div className="grid gap-4 sm:grid-cols-3">
+              {CRITERIA.map(({ field, label }) => (
+                <div key={field} className="flex flex-col gap-1.5">
+                  <Label htmlFor={`eval-${field}`}>{label}</Label>
+                  <Select
+                    value={scores[field]}
+                    onValueChange={(value) => setScores((prev) => ({ ...prev, [field]: value }))}
+                  >
+                    <SelectTrigger
+                      id={`eval-${field}`}
+                      className="font-data"
+                      aria-invalid={Boolean(errors[field])}
+                    >
+                      <SelectValue placeholder="1 a 5" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCORE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option} className="font-data">
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {errors[field] ? (
+                    <p role="alert" className="text-12 text-void">
+                      {errors[field]}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
             </div>
-          ))}
 
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="eval-comment">Comentario</Label>
-            <Textarea
-              id="eval-comment"
-              value={comment}
-              onChange={(event) => setComment(event.target.value)}
-              rows={4}
-              placeholder="Observaciones sobre el desempeño del practicante"
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="eval-comment">Comentario</Label>
+              <p className="text-12 text-inkSoft">
+                Opcional. Queda en el acta junto con los puntajes.
+              </p>
+              <Textarea
+                id="eval-comment"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                rows={4}
+                placeholder="Observaciones sobre el desempeño del practicante"
+              />
+            </div>
 
-          {submitError ? (
-            <p role="alert" className="text-14 text-void">
-              {submitError}
-            </p>
-          ) : null}
+            {submitError ? (
+              <p role="alert" className="rounded-md bg-chipVoid px-3 py-2.5 text-13 text-void">
+                {submitError}
+              </p>
+            ) : null}
 
-          <Button type="submit" disabled={submitting} className="self-start">
-            {submitting ? 'Enviando…' : 'Enviar evaluación'}
-          </Button>
-        </form>
+            <Button type="submit" disabled={submitting} className="self-start">
+              {submitting ? 'Enviando…' : 'Enviar evaluación'}
+            </Button>
+          </form>
+        </Section>
       )}
-    </div>
+    </>
   )
 }

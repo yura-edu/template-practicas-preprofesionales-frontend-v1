@@ -8,12 +8,15 @@ export type SyncState = 'local' | 'queued' | 'synced' | 'failed'
 const GUTTER: Record<SyncState, { label: string; className: string; style?: CSSProperties }> = {
   local: {
     label: 'Sin sincronizar',
-    className: 'bg-transparent border border-inkSoft/40',
+    className: 'bg-transparent border border-inkMute',
   },
   queued: {
     label: 'En cola',
-    className: 'border border-pending',
-    style: { backgroundImage: 'repeating-linear-gradient(180deg, hsl(var(--pending)) 0 4px, transparent 4px 8px)' },
+    className: 'border border-dotPending',
+    style: {
+      backgroundImage:
+        'repeating-linear-gradient(180deg, hsl(var(--dot-pending)) 0 4px, transparent 4px 8px)',
+    },
   },
   synced: {
     label: 'Sincronizado',
@@ -21,8 +24,11 @@ const GUTTER: Record<SyncState, { label: string; className: string; style?: CSSP
   },
   failed: {
     label: 'Rechazado',
-    className: 'border border-void',
-    style: { backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--void)) 0 2px, transparent 2px 5px)' },
+    className: 'border border-dotVoid',
+    style: {
+      backgroundImage:
+        'repeating-linear-gradient(45deg, hsl(var(--dot-void)) 0 2px, transparent 2px 5px)',
+    },
   },
 }
 
@@ -33,7 +39,7 @@ export function SyncGutter({ state }: { state: SyncState }) {
       role="img"
       aria-label={label}
       title={label}
-      className={cn('block w-1 self-stretch rounded-none', className)}
+      className={cn('block w-1 flex-none self-stretch rounded-full', className)}
       style={style}
     />
   )

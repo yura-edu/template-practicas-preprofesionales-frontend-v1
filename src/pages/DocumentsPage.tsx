@@ -1,11 +1,15 @@
 import { type ChangeEvent, type FormEvent, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ApiError, api } from '@/api/client'
+import { Chip } from '@/components/Chip'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Section } from '@/components/Panel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { parseLocalDate } from '@/lib/date'
+import { plural } from '@/lib/utils'
 import { db, type LocalDocument } from '@/offline/db'
 import { usePlacement } from '@/offline/hooks/usePlacement'
 
@@ -22,10 +26,90 @@ const KIND_LABEL: Record<DocumentKind, string> = {
   EVIDENCE: 'Evidencia',
 }
 
+const DOC_ROW_CLASS = 'flex min-h-row items-center justify-between gap-4 px-[18px] py-2.5'
+
 function formatDate(dateValue: string): string {
   const parsed = parseLocalDate(dateValue)
   if (Number.isNaN(parsed.getTime())) return dateValue
   return new Intl.DateTimeFormat('es-EC', { day: '2-digit', month: 'short', year: 'numeric' }).format(parsed)
+}
+
+/** Último estado conocido de un tipo de documento, o `null` si no se subió. */
+function latestStatus(documents: LocalDocument[], kind: DocumentKind): string | null {
+  return (
+    documents
+      .filter((doc) => doc.kind === kind)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0]?.status ?? null
+  )
+}
+
+function RequiredStatus({ documents, kind }: { documents: LocalDocument[] | undefined; kind: DocumentKind }) {
+  if (documents === undefined) return <span className="text-12 text-inkSoft">Cargando…</span>
+  const status = latestStatus(documents, kind)
+  if (status) return <StatusBadge status={status} />
+  return <Chip tone="void">Falta subir</Chip>
+}
+
+function RequiredDocuments({ documents }: { documents: LocalDocument[] | undefined }) {
+  return (
+    <Section title="Obligatorios para activar la práctica">
+      <div className="divide-y divide-paperRule">
+        {REQUIRED_KINDS.map((kind) => (
+          <div key={kind} className={DOC_ROW_CLASS}>
+            <span className="text-14 font-semibold text-ink">{KIND_LABEL[kind]}</span>
+            <RequiredStatus documents={documents} kind={kind} />
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function DocumentsList({ documents }: { documents: LocalDocument[] | undefined }) {
+  if (documents === undefined) {
+    return (
+      <Section title="Todos tus documentos">
+        <LoadingState>Cargando documentos…</LoadingState>
+      </Section>
+    )
+  }
+
+  if (documents.length === 0) {
+    return (
+      <Section title="Todos tus documentos">
+        <EmptyState
+          title="Todavía no has subido documentos"
+          description="Empieza por el convenio y el seguro."
+        />
+      </Section>
+    )
+  }
+
+  return (
+    <Section
+      title="Todos tus documentos"
+      aside={
+        <span className="font-data text-12 text-inkSoft">
+          {plural(documents.length, 'documento', 'documentos')}
+        </span>
+      }
+    >
+      <div className="divide-y divide-paperRule">
+        {documents.map((doc, index) => (
+          <div key={index} className={DOC_ROW_CLASS}>
+            <div className="min-w-0">
+              <div className="truncate text-14 font-semibold text-ink">{doc.filename}</div>
+              <div className="mt-0.5 text-12 text-inkSoft">
+                {KIND_LABEL[doc.kind as DocumentKind] ?? doc.kind} ·{' '}
+                <span className="font-data">{formatDate(doc.updatedAt)}</span>
+              </div>
+            </div>
+            <StatusBadge status={doc.status} />
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
 }
 
 export function DocumentsPage() {
@@ -42,11 +126,16 @@ export function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (placement === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando tu práctica…</p>
+    return <LoadingState>Cargando tu práctica…</LoadingState>
   }
 
   if (placement === null) {
-    return <p className="font-display text-16 text-inkSoft">No tienes una práctica activa todavía.</p>
+    return (
+      <EmptyState
+        title="No tienes una práctica activa todavía"
+        description="Cuando la coordinación active tu plaza, vas a poder subir documentos."
+      />
+    )
   }
 
   async function handleUpload(event: FormEvent<HTMLFormElement>) {
@@ -87,74 +176,48 @@ export function DocumentsPage() {
     setFile(event.target.files?.[0] ?? null)
   }
 
-  const requiredStatus = (docKind: DocumentKind) =>
-    documents
-      ?.filter((doc) => doc.kind === docKind)
-      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))[0]?.status ?? null
-
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-20 text-ink">Documentos</h1>
+    <>
+      <PageHeader
+        title="Documentos"
+        subtitle="A diferencia del libro de horas, subir un documento necesita conexión."
+      />
 
-      <section className="border border-paperRule bg-surface">
-        <h2 className="border-b border-paperRule px-3 py-2 font-display text-14 uppercase tracking-wide text-inkSoft">
-          Obligatorios para activar la práctica
-        </h2>
-        <div className="divide-y divide-paperRule">
-          {REQUIRED_KINDS.map((requiredKind) => {
-            const status = documents === undefined ? undefined : requiredStatus(requiredKind)
-            return (
-              <div key={requiredKind} className="flex items-center justify-between px-3 py-2">
-                <span className="text-14 text-ink">{KIND_LABEL[requiredKind]}</span>
-                {documents === undefined ? (
-                  <span className="font-data text-12 text-inkSoft">Cargando…</span>
-                ) : status ? (
-                  <StatusBadge status={status} />
-                ) : (
-                  <span className="font-data text-12 uppercase text-void">Falta subir</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </section>
+      <RequiredDocuments documents={documents} />
 
-      <section className="border border-paperRule bg-surface p-4">
-        <h2 className="font-display text-14 uppercase tracking-wide text-inkSoft">Subir documento</h2>
-        <p className="mt-1 font-data text-12 text-inkSoft">
-          A diferencia del libro de horas, la carga de documentos necesita conexión: no se guarda en este dispositivo
-        </p>
+      <Section title="Subir documento">
+        <form className="flex flex-col gap-4 px-[18px] py-4" onSubmit={handleUpload} noValidate>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="document-kind">Tipo de documento</Label>
+              <Select value={kind} onValueChange={(value) => setKind(value as DocumentKind)}>
+                <SelectTrigger id="document-kind">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(KIND_LABEL) as DocumentKind[]).map((kindOption) => (
+                    <SelectItem key={kindOption} value={kindOption}>
+                      {KIND_LABEL[kindOption]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        <form className="mt-3 flex flex-col gap-3" onSubmit={handleUpload} noValidate>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="document-kind">Tipo de documento</Label>
-            <Select value={kind} onValueChange={(value) => setKind(value as DocumentKind)}>
-              <SelectTrigger id="document-kind" className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(KIND_LABEL) as DocumentKind[]).map((kindOption) => (
-                  <SelectItem key={kindOption} value={kindOption}>
-                    {KIND_LABEL[kindOption]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="document-file">Archivo</Label>
-            <input
-              id="document-file"
-              ref={fileInputRef}
-              type="file"
-              onChange={handleFileChange}
-              className="font-data text-14 text-ink file:mr-3 file:border file:border-paperRule file:bg-paper file:px-3 file:py-1.5 file:font-display file:text-14 file:text-ink"
-            />
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="document-file">Archivo</Label>
+              <input
+                id="document-file"
+                ref={fileInputRef}
+                type="file"
+                onChange={handleFileChange}
+                className="flex h-field w-full items-center rounded border border-line bg-surface px-[13px] text-13 text-inkBody file:mr-3 file:h-7 file:rounded-md file:border file:border-line file:bg-soft file:px-3 file:font-display file:text-13 file:font-medium file:text-ink"
+              />
+            </div>
           </div>
 
           {uploadError ? (
-            <p role="alert" className="text-14 text-void">
+            <p role="alert" className="rounded-md bg-chipVoid px-3 py-2.5 text-13 text-void">
               {uploadError}
             </p>
           ) : null}
@@ -163,35 +226,9 @@ export function DocumentsPage() {
             {uploading ? 'Subiendo…' : 'Subir documento'}
           </Button>
         </form>
-      </section>
+      </Section>
 
-      <section className="border border-paperRule bg-surface">
-        <h2 className="border-b border-paperRule px-3 py-2 font-display text-14 uppercase tracking-wide text-inkSoft">
-          Todos tus documentos
-        </h2>
-        {documents === undefined ? (
-          <p className="px-3 py-4 font-display text-14 text-inkSoft">Cargando documentos…</p>
-        ) : documents.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <p className="font-display text-16 text-ink">Todavía no has subido documentos</p>
-            <p className="font-display text-14 text-inkSoft">Empieza por el convenio y el seguro</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-paperRule">
-            {documents.map((doc, index) => (
-              <div key={index} className="flex items-center justify-between gap-3 px-3 py-2">
-                <div className="flex flex-col">
-                  <span className="text-14 text-ink">{doc.filename}</span>
-                  <span className="font-data text-12 uppercase text-inkSoft">
-                    {KIND_LABEL[doc.kind as DocumentKind] ?? doc.kind} · {formatDate(doc.updatedAt)}
-                  </span>
-                </div>
-                <StatusBadge status={doc.status} />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
+      <DocumentsList documents={documents} />
+    </>
   )
 }

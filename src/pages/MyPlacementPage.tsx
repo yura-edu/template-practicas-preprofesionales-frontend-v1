@@ -1,10 +1,18 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
+import { HeroCard, HeroPanel } from '@/components/HeroPanel'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Section } from '@/components/Panel'
+import { ProgressBar } from '@/components/ProgressBar'
+import { StatCard, StatGrid } from '@/components/StatCard'
 import { StatusBadge } from '@/components/StatusBadge'
+import { Button } from '@/components/ui/button'
 import { Ledger } from '@/components/ledger/Ledger'
 import { LedgerRow } from '@/components/ledger/LedgerRow'
 import { parseLocalDate } from '@/lib/date'
-import { db, type LocalDocument } from '@/offline/db'
+import { type HoursSummary, summarizeHours } from '@/lib/hours'
+import { plural } from '@/lib/utils'
+import { db, type LocalDocument, type LocalHourLog } from '@/offline/db'
 import { useHourLogs } from '@/offline/hooks/useHourLogs'
 import { usePlacement } from '@/offline/hooks/usePlacement'
 
@@ -18,6 +26,182 @@ function formatPeriod(startDate: string, endDate: string): string {
   return `${formatDate(startDate)} – ${formatDate(endDate)}`
 }
 
+function DataRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-[18px] py-3">
+      <dt className="text-14 text-inkSoft">{label}</dt>
+      <dd className="text-14 text-ink">{children}</dd>
+    </div>
+  )
+}
+
+function PlacementHero({
+  hours,
+  pendingDocuments,
+}: {
+  hours: HoursSummary
+  pendingDocuments: number
+}) {
+  const remaining = Math.max(0, hours.requiredHours - hours.approvedHours)
+
+  return (
+    <HeroPanel
+      title={`Te faltan ${remaining.toFixed(1)} horas aprobadas`}
+      description="Registrá tus horas el mismo día. Tu tutor las revisa y lo que apruebe cuenta para el acta final."
+      aside={
+        <>
+          <HeroCard label="Sin aprobar">
+            {hours.submittedHours.toFixed(1)} h esperando a tu tutor
+          </HeroCard>
+          <HeroCard label="Documentos">
+            {plural(pendingDocuments, 'documento pendiente', 'documentos pendientes')}
+          </HeroCard>
+        </>
+      }
+    >
+      <div className="flex items-center gap-3">
+        <ProgressBar
+          value={hours.approvedPct}
+          pendingValue={hours.submittedPct}
+          label="Progreso de horas aprobadas"
+          onTint
+        />
+        <span className="inline-flex h-[26px] flex-none items-center rounded-full bg-surface px-2.5 font-data text-12 font-semibold text-ink">
+          {Math.round(hours.approvedPct)}%
+        </span>
+      </div>
+    </HeroPanel>
+  )
+}
+
+function PlacementStats({
+  hours,
+  pendingDocuments,
+  logCount,
+}: {
+  hours: HoursSummary
+  pendingDocuments: number
+  logCount: number
+}) {
+  return (
+    <StatGrid>
+      <StatCard
+        label="Horas aprobadas"
+        value={hours.approvedHours.toFixed(1)}
+        note={`de ${hours.requiredHours}`}
+      />
+      <StatCard
+        label="Sin revisar"
+        value={hours.submittedHours.toFixed(1)}
+        note="con tu tutor"
+        noteTone="pending"
+      />
+      <StatCard
+        label="Documentos pendientes"
+        value={String(pendingDocuments)}
+        note="por validar"
+        noteTone={pendingDocuments > 0 ? 'pending' : 'neutral'}
+      />
+      <StatCard label="Registros" value={String(logCount)} note="en el libro" />
+    </StatGrid>
+  )
+}
+
+function PendingDocuments({ documents }: { documents: LocalDocument[] | undefined }) {
+  const aside = (
+    <Link to="/documentos" className="text-13 font-semibold text-stamp hover:underline">
+      Ir a documentos
+    </Link>
+  )
+
+  if (documents === undefined) {
+    return (
+      <Section title="Documentos pendientes" aside={aside}>
+        <LoadingState>Cargando documentos…</LoadingState>
+      </Section>
+    )
+  }
+
+  const pending = documents.filter((doc) => doc.status === 'PENDING')
+  if (pending.length === 0) {
+    return (
+      <Section title="Documentos pendientes" aside={aside}>
+        <EmptyState
+          title="No tienes documentos pendientes"
+          description="Todo lo que subiste ya fue revisado."
+        />
+      </Section>
+    )
+  }
+
+  return (
+    <Section title="Documentos pendientes" aside={aside}>
+      <div className="divide-y divide-paperRule">
+        {pending.map((doc, index) => (
+          <div
+            key={index}
+            className="flex min-h-row items-center justify-between gap-4 px-[18px] py-2.5"
+          >
+            <div className="min-w-0">
+              <div className="truncate text-14 font-semibold text-ink">{doc.filename}</div>
+              <div className="mt-0.5 text-12 text-inkSoft">{doc.kind}</div>
+            </div>
+            <StatusBadge status={doc.status} />
+          </div>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function RecentLogs({ logs }: { logs: LocalHourLog[] | undefined }) {
+  const aside = (
+    <Link to="/horas" className="text-13 font-semibold text-stamp hover:underline">
+      Ver el libro de horas
+    </Link>
+  )
+
+  if (logs === undefined) {
+    return (
+      <Section title="Últimos registros de horas" aside={aside}>
+        <LoadingState>Cargando registros…</LoadingState>
+      </Section>
+    )
+  }
+
+  const recent = logs.slice(-5).reverse()
+  if (recent.length === 0) {
+    return (
+      <Section title="Últimos registros de horas" aside={aside}>
+        <EmptyState
+          title="Todavía no has registrado horas"
+          description="Puedes hacerlo sin conexión."
+        />
+      </Section>
+    )
+  }
+
+  return (
+    <Section title="Últimos registros de horas" aside={aside}>
+      <Ledger>
+        {recent.map((log, index) => (
+          <LedgerRow key={index} syncState={log.syncState}>
+            <span className="font-data text-14 text-ink sm:w-28">{formatDate(log.date)}</span>
+            <span className="font-data text-13 text-inkSoft sm:w-28">
+              {log.startTime}–{log.endTime}
+            </span>
+            <span className="font-data text-14 text-ink sm:w-14">{log.hours}</span>
+            <span className="flex-1 text-14 text-inkBody">{log.activity}</span>
+            <span className="sm:w-32 sm:text-right">
+              <StatusBadge status={log.status} />
+            </span>
+          </LedgerRow>
+        ))}
+      </Ledger>
+    </Section>
+  )
+}
+
 export function MyPlacementPage() {
   const placement = usePlacement()
   const logs = useHourLogs(placement?.id ?? -1)
@@ -27,138 +211,57 @@ export function MyPlacementPage() {
   }, [placement?.id])
 
   if (placement === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando tu práctica…</p>
+    return <LoadingState>Cargando tu práctica…</LoadingState>
   }
 
   if (placement === null) {
-    return <p className="font-display text-16 text-inkSoft">No tienes una práctica activa todavía.</p>
+    return (
+      <EmptyState
+        title="No tienes una práctica activa todavía"
+        description="Cuando la coordinación active tu plaza, la vas a ver acá."
+      />
+    )
   }
 
-  const pendingDocuments = documents?.filter((doc) => doc.status === 'PENDING') ?? []
-
-  let approvedHours = 0
-  let submittedHours = 0
-  for (const log of logs ?? []) {
-    if (log.status === 'APPROVED') approvedHours += log.hours
-    if (log.status === 'SUBMITTED') submittedHours += log.hours
-  }
-
-  const requiredHours = placement.requiredHours
-  const approvedPct = requiredHours > 0 ? Math.min(100, (approvedHours / requiredHours) * 100) : 0
-  const submittedPct =
-    requiredHours > 0 ? Math.min(100 - approvedPct, (submittedHours / requiredHours) * 100) : 0
-
-  const recentLogs = logs ? logs.slice(-5).reverse() : undefined
+  const pendingDocuments = documents?.filter((doc) => doc.status === 'PENDING').length ?? 0
+  const hours = summarizeHours(logs, placement.requiredHours)
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="font-display text-20 text-ink">Mi práctica</h1>
+    <>
+      <PageHeader
+        title="Mi práctica"
+        subtitle={`Empresa #${placement.companyId} · ${formatPeriod(placement.startDate, placement.endDate)}`}
+        actions={
+          <Button asChild>
+            <Link to="/horas">Registrar horas</Link>
+          </Button>
+        }
+      />
 
-      <section className="border border-paperRule bg-surface">
-        <h2 className="border-b border-paperRule px-3 py-2 font-display text-14 uppercase tracking-wide text-inkSoft">
-          Datos de la práctica
-        </h2>
+      <PlacementHero hours={hours} pendingDocuments={pendingDocuments} />
+
+      <PlacementStats
+        hours={hours}
+        pendingDocuments={pendingDocuments}
+        logCount={logs?.length ?? 0}
+      />
+
+      <Section title="Datos de la práctica">
         <dl className="divide-y divide-paperRule">
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Empresa</dt>
-            <dd className="font-data text-14 text-ink">Empresa #{placement.companyId}</dd>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Tutor</dt>
-            <dd className="font-data text-14 text-ink">Tutor #{placement.tutorId}</dd>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Periodo</dt>
-            <dd className="font-data text-14 tabular-nums text-ink">
-              {formatPeriod(placement.startDate, placement.endDate)}
-            </dd>
-          </div>
-          <div className="flex items-center justify-between px-3 py-2">
-            <dt className="font-display text-14 text-inkSoft">Estado</dt>
-            <dd>
-              <StatusBadge status={placement.status} />
-            </dd>
-          </div>
+          <DataRow label="Empresa">Empresa #{placement.companyId}</DataRow>
+          <DataRow label="Tutor">Tutor #{placement.tutorId}</DataRow>
+          <DataRow label="Periodo">
+            <span className="font-data">{formatPeriod(placement.startDate, placement.endDate)}</span>
+          </DataRow>
+          <DataRow label="Estado">
+            <StatusBadge status={placement.status} />
+          </DataRow>
         </dl>
-      </section>
+      </Section>
 
-      <section className="flex flex-col gap-2 border border-paperRule bg-surface p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-14 uppercase tracking-wide text-inkSoft">Progreso de horas</h2>
-          <p className="font-data text-14 tabular-nums text-inkSoft">
-            {approvedHours.toFixed(1)} / {requiredHours} horas aprobadas
-          </p>
-        </div>
-        <div
-          role="progressbar"
-          aria-valuenow={Math.round(approvedPct)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Progreso de horas aprobadas"
-          className="flex h-2 w-full overflow-hidden border border-paperRule bg-paper"
-        >
-          <span className="block h-full bg-stamp" style={{ width: `${approvedPct}%` }} />
-          <span className="block h-full bg-pending" style={{ width: `${submittedPct}%` }} />
-        </div>
-        {submittedHours > 0 ? (
-          <p className="font-data text-12 tabular-nums text-pending">
-            {submittedHours.toFixed(1)} horas enviadas, todavía sin aprobar
-          </p>
-        ) : null}
-      </section>
+      <PendingDocuments documents={documents} />
 
-      <section className="border border-paperRule bg-surface">
-        <Ledger header="Documentos pendientes">
-          {documents === undefined ? (
-            <p className="px-3 py-4 font-display text-14 text-inkSoft">Cargando documentos…</p>
-          ) : pendingDocuments.length === 0 ? (
-            <p className="px-3 py-4 font-display text-14 text-inkSoft">No tienes documentos pendientes</p>
-          ) : (
-            pendingDocuments.map((doc, index) => (
-              <div key={index} className="flex items-center justify-between gap-3 px-3 py-2">
-                <div className="flex flex-col">
-                  <span className="text-14 text-ink">{doc.filename}</span>
-                  <span className="font-data text-12 uppercase text-inkSoft">{doc.kind}</span>
-                </div>
-                <StatusBadge status={doc.status} />
-              </div>
-            ))
-          )}
-        </Ledger>
-      </section>
-
-      <section className="border border-paperRule bg-surface">
-        <div className="flex items-center justify-between border-b border-paperRule px-3 py-2">
-          <h2 className="font-display text-14 uppercase tracking-wide text-inkSoft">Últimos registros de horas</h2>
-          <Link to="/horas" className="font-display text-14 text-stamp hover:underline">
-            Ver el libro de horas
-          </Link>
-        </div>
-        {recentLogs === undefined ? (
-          <p className="px-3 py-4 font-display text-14 text-inkSoft">Cargando registros…</p>
-        ) : recentLogs.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
-            <p className="font-display text-16 text-ink">Todavía no has registrado horas</p>
-            <p className="font-display text-14 text-inkSoft">Puedes hacerlo sin conexión</p>
-          </div>
-        ) : (
-          <Ledger>
-            {recentLogs.map((log, index) => (
-              <LedgerRow key={index} syncState={log.syncState}>
-                <span className="font-data text-14 tabular-nums text-ink sm:w-28">{formatDate(log.date)}</span>
-                <span className="font-data text-14 tabular-nums text-inkSoft sm:w-28">
-                  {log.startTime}–{log.endTime}
-                </span>
-                <span className="font-data text-14 tabular-nums text-ink sm:w-14">{log.hours}</span>
-                <span className="flex-1 text-14 text-ink">{log.activity}</span>
-                <span className="sm:w-24 sm:text-right">
-                  <StatusBadge status={log.status} />
-                </span>
-              </LedgerRow>
-            ))}
-          </Ledger>
-        )}
-      </section>
-    </div>
+      <RecentLogs logs={logs} />
+    </>
   )
 }

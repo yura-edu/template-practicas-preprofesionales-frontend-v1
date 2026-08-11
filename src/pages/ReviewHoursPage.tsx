@@ -2,10 +2,14 @@ import { type FormEvent, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useParams } from 'react-router-dom'
 import { ApiError, api } from '@/api/client'
+import { HoursProgressPanel } from '@/components/HoursProgressPanel'
+import { PageHeader } from '@/components/PageHeader'
+import { EmptyState, LoadingState, Panel } from '@/components/Panel'
 import { StatusBadge } from '@/components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -14,13 +18,23 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Ledger } from '@/components/ledger/Ledger'
+import { Ledger, LedgerHeaderRow } from '@/components/ledger/Ledger'
 import { LedgerRow } from '@/components/ledger/LedgerRow'
 import { parseLocalDate } from '@/lib/date'
+import { summarizeHours } from '@/lib/hours'
+import { plural } from '@/lib/utils'
 import { db, type LocalHourLog, type LocalPlacement } from '@/offline/db'
 import { syncNow } from '@/offline/sync/scheduler'
 
 type ActionState = 'approving' | 'rejecting' | 'approved' | 'rejected' | null
+
+// Los motivos que más se repiten al devolver un registro: se pegan al final
+// de la nota para que el tutor no escriba lo mismo cada vez.
+const COMMON_REASONS = [
+  'Las horas no coinciden con el sitio',
+  'Falta detalle de la actividad',
+  'La fecha no corresponde',
+]
 
 function formatDate(dateValue: string): string {
   const parsed = parseLocalDate(dateValue)
@@ -30,17 +44,195 @@ function formatDate(dateValue: string): string {
 
 function LedgerColumnHeader() {
   return (
-    <div className="flex items-stretch gap-3 px-3 py-2">
-      <span aria-hidden="true" className="block w-1 self-stretch" />
-      <div className="hidden flex-1 font-display text-12 uppercase tracking-wide text-inkSoft sm:flex sm:items-center sm:gap-3">
-        <span className="sm:w-28">Fecha</span>
-        <span className="sm:w-28">Horario</span>
-        <span className="sm:w-14">Horas</span>
-        <span className="flex-1">Actividad</span>
-        <span className="sm:w-24">Estado</span>
-        <span className="sm:w-40 sm:text-right">Revisión</span>
-      </div>
-    </div>
+    <LedgerHeaderRow>
+      <span className="w-28">Fecha</span>
+      <span className="w-28">Horario</span>
+      <span className="w-14">Horas</span>
+      <span className="flex-1">Actividad</span>
+      <span className="w-32">Estado</span>
+      <span className="w-44 text-right">Revisión</span>
+    </LedgerHeaderRow>
+  )
+}
+
+interface ReviewActionsProps {
+  log: LocalHourLog
+  state: ActionState
+  onApprove: (logId: number) => void
+  onReject: (log: LocalHourLog) => void
+}
+
+function ReviewActions({ log, state, onApprove, onReject }: ReviewActionsProps) {
+  if (state === 'approved') {
+    return <span className="text-13 font-semibold text-stamp">Aprobada</span>
+  }
+  if (state === 'rejected') {
+    return <span className="text-13 font-semibold text-void">Rechazada</span>
+  }
+  if (log.status !== 'SUBMITTED') return null
+
+  const busy = state === 'approving' || state === 'rejecting'
+  return (
+    <>
+      <Button type="button" size="sm" onClick={() => onApprove(log.id)} disabled={busy}>
+        {state === 'approving' ? 'Aprobando…' : 'Aprobar'}
+      </Button>
+      <Button type="button" size="sm" variant="outline" onClick={() => onReject(log)} disabled={busy}>
+        Devolver
+      </Button>
+    </>
+  )
+}
+
+interface ReviewListProps {
+  logs: LocalHourLog[]
+  actionState: Record<number, ActionState>
+  onApprove: (logId: number) => void
+  onReject: (log: LocalHourLog) => void
+}
+
+function ReviewList({ logs, actionState, onApprove, onReject }: ReviewListProps) {
+  if (logs.length === 0) {
+    return (
+      <EmptyState
+        title="No tienes horas pendientes de revisar"
+        description="Cuando tu practicante envíe horas nuevas, aparecen acá."
+      />
+    )
+  }
+
+  return (
+    <Ledger header={<LedgerColumnHeader />}>
+      {logs
+        .slice()
+        .reverse()
+        .map((log) => (
+          <LedgerRow key={log.id} syncState={log.syncState}>
+            <span className="font-data text-14 text-ink sm:w-28">{formatDate(log.date)}</span>
+            <span className="font-data text-13 text-inkSoft sm:w-28">
+              {log.startTime}–{log.endTime}
+            </span>
+            <span className="font-data text-14 text-ink sm:w-14">{log.hours}</span>
+            <span className="flex-1 text-14 text-inkBody">{log.activity}</span>
+            <span className="sm:w-32">
+              <StatusBadge status={log.status} />
+            </span>
+            <span className="flex flex-wrap justify-end gap-1.5 sm:w-44">
+              <ReviewActions
+                log={log}
+                state={actionState[log.id] ?? null}
+                onApprove={onApprove}
+                onReject={onReject}
+              />
+            </span>
+          </LedgerRow>
+        ))}
+    </Ledger>
+  )
+}
+
+interface RejectDialogProps {
+  /** Registro a devolver, o `null` con el modal cerrado. */
+  log: LocalHourLog | null
+  onCancel: () => void
+  onConfirm: (logId: number, note: string) => void
+}
+
+function RejectDialog({ log, onCancel, onConfirm }: RejectDialogProps) {
+  const [note, setNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  function handleOpenChange(open: boolean) {
+    if (open) return
+    setNote('')
+    setError(null)
+    onCancel()
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!log) return
+    const trimmed = note.trim()
+    if (!trimmed) {
+      setError('Escribe una nota para el rechazo')
+      return
+    }
+    setNote('')
+    setError(null)
+    onConfirm(log.id, trimmed)
+  }
+
+  function appendReason(reason: string) {
+    setNote((prev) => (prev ? `${prev.replace(/\s*$/, '')} ${reason}. ` : `${reason}. `))
+    setError(null)
+  }
+
+  return (
+    <Dialog open={log !== null} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Devolver el registro</DialogTitle>
+          <DialogDescription>
+            {log ? `${formatDate(log.date)} · ${log.activity} · ${log.hours} h` : null}
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} noValidate>
+          <DialogBody>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="reject-note">¿Qué tiene que corregir?</Label>
+              <p className="text-12 text-inkSoft">
+                Lo lee tal cual lo escribas, con tu nombre y la fecha.
+              </p>
+              <Textarea
+                id="reject-note"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={3}
+                placeholder="Escribe qué falta o qué está mal"
+                aria-invalid={Boolean(error)}
+                aria-describedby={error ? 'reject-note-error' : undefined}
+              />
+              {error ? (
+                <p id="reject-note-error" role="alert" className="text-12 text-void">
+                  {error}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-12 uppercase tracking-[0.06em] text-inkMute">
+                Motivos frecuentes
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {COMMON_REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    onClick={() => appendReason(reason)}
+                    className="inline-flex h-8 items-center rounded-full border border-line px-3 text-13 text-inkBody transition-colors hover:border-stamp hover:bg-soft hover:text-ink"
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button type="submit">Devolver el registro</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function pendingNote(pendingCount: number) {
+  if (pendingCount === 0) return null
+  return (
+    <span className="text-pending">
+      {' '}
+      · {plural(pendingCount, 'registro', 'registros')} sin revisar
+    </span>
   )
 }
 
@@ -71,24 +263,6 @@ export function ReviewHoursPage() {
   const [actionState, setActionState] = useState<Record<number, ActionState>>({})
   const [reviewError, setReviewError] = useState<string | null>(null)
   const [rejectingLog, setRejectingLog] = useState<LocalHourLog | null>(null)
-  const [rejectNote, setRejectNote] = useState('')
-  const [rejectNoteError, setRejectNoteError] = useState<string | null>(null)
-
-  if (placement === undefined || logs === undefined) {
-    return <p className="font-display text-16 text-inkSoft">Cargando libro de horas…</p>
-  }
-
-  if (placement === null) {
-    return <p className="font-display text-16 text-inkSoft">No se encontró este practicante.</p>
-  }
-
-  const requiredHours = placement.requiredHours
-  let approvedHours = 0
-  for (const log of logs) {
-    if (log.status === 'APPROVED') approvedHours += log.hours
-  }
-  const approvedPct = requiredHours > 0 ? Math.min(100, (approvedHours / requiredHours) * 100) : 0
-  const pendingCount = logs.filter((log) => log.status === 'SUBMITTED').length
 
   async function reviewLog(logId: number, status: 'APPROVED' | 'REJECTED', note?: string) {
     setReviewError(null)
@@ -106,150 +280,67 @@ export function ReviewHoursPage() {
     }
   }
 
-  function openReject(log: LocalHourLog) {
-    setRejectingLog(log)
-    setRejectNote('')
-    setRejectNoteError(null)
+  function confirmReject(logId: number, note: string) {
+    setRejectingLog(null)
+    void reviewLog(logId, 'REJECTED', note)
   }
 
-  async function confirmReject(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!rejectingLog) return
-    const trimmed = rejectNote.trim()
-    if (!trimmed) {
-      setRejectNoteError('Escribe una nota para el rechazo')
-      return
-    }
-    const logId = rejectingLog.id
-    setRejectingLog(null)
-    await reviewLog(logId, 'REJECTED', trimmed)
+  if (placement === undefined || logs === undefined) {
+    return <LoadingState>Cargando libro de horas…</LoadingState>
   }
+
+  if (placement === null) {
+    return <EmptyState title="No se encontró este practicante" />
+  }
+
+  const hours = summarizeHours(logs, placement.requiredHours)
+  const pendingCount = logs.filter((log) => log.status === 'SUBMITTED').length
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="font-display text-20 text-ink">Horas del practicante</h1>
-        <p className="font-data text-14 text-inkSoft">
-          Estudiante #{placement.studentId} · Empresa #{placement.companyId}
-        </p>
-        <p className="font-data text-14 tabular-nums text-inkSoft">
-          {approvedHours.toFixed(1)} / {requiredHours} horas aprobadas
-        </p>
-        <div
-          role="progressbar"
-          aria-valuenow={Math.round(approvedPct)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Progreso de horas aprobadas"
-          className="flex h-2 w-full max-w-md overflow-hidden border border-paperRule bg-paper"
-        >
-          <span className="block h-full bg-stamp" style={{ width: `${approvedPct}%` }} />
-        </div>
-        <Link
-          to={`/practicantes/${placementId}/evaluar`}
-          className="self-start font-display text-14 text-stamp hover:underline"
-        >
-          Evaluar practicante
-        </Link>
-      </header>
+    <>
+      <PageHeader
+        title="Horas del practicante"
+        subtitle={`Estudiante #${placement.studentId} · Empresa #${placement.companyId}`}
+        actions={
+          <>
+            <Button asChild variant="outline">
+              <Link to="/practicantes">Volver a la lista</Link>
+            </Button>
+            <Button asChild>
+              <Link to={`/practicantes/${placementId}/evaluar`}>Evaluar practicante</Link>
+            </Button>
+          </>
+        }
+      />
+
+      <HoursProgressPanel hours={hours} note={pendingNote(pendingCount)} />
 
       {reviewError ? (
-        <p role="alert" className="font-display text-14 text-void">
+        <p role="alert" className="rounded-lg bg-chipVoid px-4 py-3 text-13 text-void">
           {reviewError}
         </p>
       ) : null}
 
-      {logs.length > 0 && pendingCount === 0 ? (
-        <p className="font-display text-14 text-inkSoft">No tienes horas pendientes de revisar.</p>
-      ) : null}
-
-      <div className="border border-paperRule bg-surface">
-        {logs.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
-            <p className="font-display text-16 text-ink">No tienes horas pendientes de revisar.</p>
-          </div>
-        ) : (
-          <Ledger header={<LedgerColumnHeader />}>
-            {logs
-              .slice()
-              .reverse()
-              .map((log) => {
-                const state = actionState[log.id] ?? null
-                const busy = state === 'approving' || state === 'rejecting'
-                return (
-                  <LedgerRow key={log.id} syncState={log.syncState}>
-                    <span className="font-data text-14 tabular-nums text-ink sm:w-28">{formatDate(log.date)}</span>
-                    <span className="font-data text-14 tabular-nums text-inkSoft sm:w-28">
-                      {log.startTime}–{log.endTime}
-                    </span>
-                    <span className="font-data text-14 tabular-nums text-ink sm:w-14">{log.hours}</span>
-                    <span className="flex-1 text-14 text-ink">{log.activity}</span>
-                    <span className="sm:w-24">
-                      <StatusBadge status={log.status} />
-                    </span>
-                    <span className="flex justify-end gap-2 sm:w-40">
-                      {state === 'approved' ? (
-                        <span className="font-display text-14 text-stamp">Aprobada</span>
-                      ) : state === 'rejected' ? (
-                        <span className="font-display text-14 text-void">Rechazada</span>
-                      ) : log.status === 'SUBMITTED' ? (
-                        <>
-                          <Button type="button" size="sm" onClick={() => reviewLog(log.id, 'APPROVED')} disabled={busy}>
-                            {state === 'approving' ? 'Aprobando…' : 'Aprobar'}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openReject(log)}
-                            disabled={busy}
-                          >
-                            Rechazar
-                          </Button>
-                        </>
-                      ) : null}
-                    </span>
-                  </LedgerRow>
-                )
-              })}
-          </Ledger>
-        )}
-      </div>
-
-      <Dialog
-        open={rejectingLog !== null}
-        onOpenChange={(open) => {
-          if (!open) setRejectingLog(null)
-        }}
+      <Panel
+        toolbar={
+          <span className="ml-auto font-data text-12 text-inkSoft">
+            {plural(pendingCount, 'registro', 'registros')} sin revisar
+          </span>
+        }
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rechazar horas</DialogTitle>
-            <DialogDescription>Explica por qué se rechaza este registro</DialogDescription>
-          </DialogHeader>
-          <form className="flex flex-col gap-3" onSubmit={confirmReject} noValidate>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="reject-note">Nota</Label>
-              <Textarea
-                id="reject-note"
-                value={rejectNote}
-                onChange={(event) => setRejectNote(event.target.value)}
-                rows={3}
-                aria-invalid={Boolean(rejectNoteError)}
-                aria-describedby={rejectNoteError ? 'reject-note-error' : undefined}
-              />
-              {rejectNoteError ? (
-                <p id="reject-note-error" role="alert" className="text-12 text-void">
-                  {rejectNoteError}
-                </p>
-              ) : null}
-            </div>
-            <DialogFooter>
-              <Button type="submit">Rechazar</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </div>
+        <ReviewList
+          logs={logs}
+          actionState={actionState}
+          onApprove={(logId) => reviewLog(logId, 'APPROVED')}
+          onReject={setRejectingLog}
+        />
+      </Panel>
+
+      <RejectDialog
+        log={rejectingLog}
+        onCancel={() => setRejectingLog(null)}
+        onConfirm={confirmReject}
+      />
+    </>
   )
 }

@@ -122,9 +122,22 @@ no tiene sentido encolar algo que el servidor va a rechazar de entrada.
 
 ### Sistema de diseño
 
-Tipografía: IBM Plex Sans para texto, IBM Plex Sans Condensed para títulos, IBM Plex Mono
-para datos (horas, fechas, montos), las tres vía `@fontsource`, precacheadas por el
-service worker.
+Una sola familia para toda la interfaz: **IBM Plex Sans** (texto y títulos, que se
+distinguen por peso y por un tracking negativo, no por otra tipografía) más **IBM Plex
+Mono** para datos (horas, fechas, porcentajes). Ambas vía `@fontsource`, precacheadas por
+el service worker.
+
+Los tokens viven en `src/index.css` como variables CSS en HSL y se exponen a Tailwind desde
+`tailwind.config.ts`. El acento es el azul `--stamp` (`#0E3A6B`), que hace de color primario
+y de estado resuelto a la vez; `--pending` (ámbar) y `--void` (rojo) cubren lo que espera
+decisión y lo que volvió rechazado.
+
+El armazón es **topbar + sidebar** (`components/AppLayout.tsx`): barra superior de 60 px con
+la marca y el usuario, columna de 230 px con la navegación agrupada por rol, y el indicador
+de sincronización fijo al pie de esa columna. Sobre eso, cada pantalla se arma con las
+piezas de `components/`: `PageHeader`, `Panel`/`Section`, `StatCard`, `Chip`, `OfferCard`,
+`HeroPanel`, `FilterTabs`, `ProgressBar` y los estados compartidos de carga, error y vacío
+(`AsyncSection`).
 
 El componente central es el **ledger** (`components/ledger/`): la lista de registros de
 horas, heredera del libro de papel donde el tutor firmaba cada entrada a mano. A la
