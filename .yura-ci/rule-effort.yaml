@@ -1,0 +1,77 @@
+# Remediation effort per lint rule — the definition of technical debt in yura.
+#
+# This file lives in ci-workflows, NOT in the student's repo: a `working_repo` is
+# public and its owner can edit it. Keeping the table here means the definition of
+# debt is the same for every group and changes through a reviewable PR.
+#
+# A rule that fires and has NO entry here contributes 0 minutes and is reported as
+# untariffed. The system does not invent a default cost: underestimating the debt
+# is preferable to inventing it.
+#
+# Provenance: the rule LIST was checked against a real run of
+# `eslint-plugin-sonarjs@3` on the practicas-preprofesionales templates
+# (2026-09-02); every rule that actually fired there is tariffed. The MINUTES are
+# still a starting point — 12 violations across two templates is not a calibration.
+#
+# `calibrated: false` means these minutes are a starting point, not a measurement.
+# Every surface that shows the debt must say so. Calibration needs data from real
+# pilot repos — see task 5.2 of `replace-sonarqube-with-native-metrics`.
+
+version: 1
+calibrated: false
+
+# Minutes charged per new-code line, denominator of debt_ratio:
+#   debt_ratio = debt_minutes / (totalNewLines * cost_per_line)
+cost_per_line: 30
+
+rules:
+  # ── Bugs: code that is wrong, not merely awkward ────────────────────────────
+  - { rule: sonarjs/no-all-duplicated-branches, minutes: 15, kind: bug }
+  - { rule: sonarjs/no-identical-conditions, minutes: 15, kind: bug }
+  - { rule: sonarjs/no-identical-expressions, minutes: 15, kind: bug }
+  - { rule: sonarjs/no-one-iteration-loop, minutes: 15, kind: bug }
+  - { rule: sonarjs/no-element-overwrite, minutes: 15, kind: bug }
+  - { rule: sonarjs/no-empty-collection, minutes: 10, kind: bug }
+  - { rule: sonarjs/no-extra-arguments, minutes: 10, kind: bug }
+  - { rule: sonarjs/no-ignored-return, minutes: 10, kind: bug }
+  - { rule: sonarjs/no-use-of-empty-return-value, minutes: 10, kind: bug }
+  - { rule: sonarjs/no-collection-size-mischeck, minutes: 5, kind: bug }
+
+  # ── Vulnerabilities: reachable security defects ────────────────────────────
+  - { rule: sonarjs/os-command, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/no-clear-text-protocols, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/no-weak-cipher, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/no-weak-keys, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/no-unsafe-unzip, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/no-hardcoded-passwords, minutes: 30, kind: vulnerability }
+  - { rule: sonarjs/pseudo-random, minutes: 20, kind: vulnerability }
+  - { rule: sonarjs/slow-regex, minutes: 20, kind: vulnerability }
+  - { rule: sonarjs/publicly-writable-directories, minutes: 20, kind: vulnerability }
+  - { rule: sonarjs/no-hardcoded-ip, minutes: 15, kind: vulnerability }
+
+  # ── Smells: cost of living with the code ───────────────────────────────────
+  - { rule: sonarjs/cognitive-complexity, minutes: 20, kind: smell }
+  - { rule: sonarjs/max-switch-cases, minutes: 15, kind: smell }
+  - { rule: sonarjs/no-nested-functions, minutes: 15, kind: smell }
+  - { rule: sonarjs/no-identical-functions, minutes: 10, kind: smell }
+  - { rule: sonarjs/no-duplicated-branches, minutes: 10, kind: smell }
+  - { rule: sonarjs/no-nested-conditional, minutes: 10, kind: smell }
+  - { rule: sonarjs/no-nested-switch, minutes: 10, kind: smell }
+  - { rule: sonarjs/no-gratuitous-expressions, minutes: 10, kind: smell }
+  - { rule: sonarjs/prefer-object-literal, minutes: 10, kind: smell }
+  - { rule: sonarjs/no-duplicate-string, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-collapsible-if, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-redundant-assignments, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-redundant-boolean, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-redundant-jump, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-same-line-conditional, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-small-switch, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-unused-collection, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-useless-catch, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-inverted-boolean-check, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-nested-template-literals, minutes: 5, kind: smell }
+  - { rule: sonarjs/no-dead-store, minutes: 5, kind: smell }
+  - { rule: sonarjs/prefer-immediate-return, minutes: 5, kind: smell }
+  - { rule: sonarjs/prefer-single-boolean-return, minutes: 5, kind: smell }
+  - { rule: sonarjs/todo-tag, minutes: 5, kind: smell }
+  - { rule: sonarjs/prefer-while, minutes: 2, kind: smell }
