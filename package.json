@@ -47,6 +47,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^9.17.0",
     "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-sonarjs": "^3.0.7",
     "fake-indexeddb": "^6.0.0",
     "jscpd": "^4.0.5",
     "jsdom": "^25.0.1",

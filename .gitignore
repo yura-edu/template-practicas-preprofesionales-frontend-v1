@@ -5,3 +5,4 @@ coverage
 .jscpd
 eslint-report.json
 .env
+.yura-ci/
