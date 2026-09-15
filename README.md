@@ -2,7 +2,7 @@
 
 Cliente offline-first para gestión de prácticas preprofesionales: una SPA en React donde
 el estudiante registra horas de práctica aunque no haya señal en el sitio donde practica.
-El backend vive en el repo hermano `template-practicas-preprofesionales-backend-v1`.
+El backend vive en el repo hermano de backend de tu grupo (`practicas-preprofesionales-backend-*`).
 
 Arranca sin conexión: el service worker (Workbox, vía `vite-plugin-pwa`) precachea el
 código, los assets y las fuentes en la primera visita, así que una recarga sin red sigue
@@ -17,7 +17,7 @@ JWT, y sin JWT el scheduler de sync (ver Architecture) ni siquiera arranca.
 
 ### 1. Backend
 
-En el repo hermano `template-practicas-preprofesionales-backend-v1`:
+En el repo hermano de backend:
 
 ```bash
 pnpm install
